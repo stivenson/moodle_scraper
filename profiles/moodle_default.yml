@@ -1,0 +1,103 @@
+# Perfil genérico para portales Moodle 4.x
+metadata:
+  name: "Moodle Default"
+  version: "1.0.0"
+  description: "Perfil genérico para portales Moodle 4.x"
+  lms_type: "moodle"
+
+auth:
+  login_path: "/login/"
+  form_selectors:
+    username: "#username"
+    password: "#password"
+    submit: "#loginbtn"
+  success_indicators:
+    - url_contains: "/my/"
+    - element_present: "[data-region='courses-view']"
+  error_indicators:
+    - element_present: ".loginerrors"
+    - text_contains: "Invalid login"
+
+navigation:
+  courses_page: "/my/courses.php"
+  dashboard: "/my/"
+
+courses:
+  container: "[data-region='courses-view']"
+  selectors:
+    - "a[href*='course/view.php']"
+    - ".course-title a"
+    - ".course-name a"
+    - ".coursebox a"
+  extract:
+    name: "text"
+    url: "href"
+
+assignments:
+  types:
+    - name: "assignment"
+      selectors:
+        - "a[href*='mod/assign']"
+        - ".activity-assign a"
+        - ".modtype_assign a"
+    - name: "quiz"
+      selectors:
+        - "a[href*='mod/quiz']"
+        - ".activity-quiz a"
+    - name: "forum"
+      selectors:
+        - "a[href*='mod/forum']"
+        - ".activity-forum a"
+    - name: "workshop"
+      selectors:
+        - "a[href*='mod/workshop']"
+
+dates:
+  locale: "es"
+  formats:
+    - "%d/%m/%Y"
+    - "%d-%m-%Y"
+    - "%d de %B de %Y"
+  selectors:
+    - ".due-date"
+    - ".deadline"
+    - ".activity-dates"
+  patterns:
+    - "vencimiento.*?(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})"
+    - "entrega.*?(\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})"
+    - "(\\d{1,2} de \\w+ de \\d{4})"
+
+submission:
+  status_table: "table.generaltable"
+  indicators:
+    submitted:
+      - "enviado para calificar"
+      - "submitted for grading"
+      - "entregado"
+    pending:
+      - "no entregado"
+      - "not submitted"
+      - "pendiente"
+
+sections:
+  tab_selectors:
+    - ".nav-tabs a"
+    - ".course-tabs a"
+    - "a[href*='section']"
+  max_tabs: 5
+
+reports:
+  title_template: "Reporte de Tareas - {portal_name}"
+  sections:
+    - name: "submitted"
+      title: "Tareas Entregadas Recientemente"
+      emoji: "rocket"
+    - name: "overdue"
+      title: "Tareas Atrasadas"
+      emoji: "warning"
+    - name: "due_today"
+      title: "Tareas para Hoy"
+      emoji: "calendar"
+    - name: "upcoming"
+      title: "Próximas Tareas"
+      emoji: "clock"

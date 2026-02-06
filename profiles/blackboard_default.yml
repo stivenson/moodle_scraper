@@ -1,0 +1,69 @@
+# Perfil genérico para Blackboard Learn
+metadata:
+  name: "Blackboard Learn"
+  version: "1.0.0"
+  description: "Perfil genérico para Blackboard"
+  lms_type: "blackboard"
+
+auth:
+  login_path: "/webapps/login/"
+  form_selectors:
+    username: "#user_id"
+    password: "#password"
+    submit: "#entry-login"
+  success_indicators:
+    - url_contains: "/webapps"
+  error_indicators: []
+
+navigation:
+  courses_page: "/webapps/portal/execute/tabs/tabAction?tab_tab_group_id=_1_1"
+  dashboard: "/webapps/portal"
+
+courses:
+  container: ".course-list"
+  selectors:
+    - "a[href*='/webapps/blackboard/execute/launcher']"
+  extract:
+    name: "text"
+    url: "href"
+
+assignments:
+  types:
+    - name: "assignment"
+      selectors:
+        - "a[href*='assignment']"
+        - "a[href*='assessment']"
+
+dates:
+  locale: "en"
+  formats:
+    - "%Y-%m-%d"
+    - "%B %d, %Y"
+  selectors: []
+  patterns: []
+
+submission:
+  status_table: ""
+  indicators:
+    submitted: ["submitted", "completed"]
+    pending: ["not attempted"]
+
+sections:
+  tab_selectors: []
+  max_tabs: 0
+
+reports:
+  title_template: "Reporte de Tareas - {portal_name}"
+  sections:
+    - name: "submitted"
+      title: "Recently Submitted"
+      emoji: "rocket"
+    - name: "overdue"
+      title: "Overdue"
+      emoji: "warning"
+    - name: "due_today"
+      title: "Due Today"
+      emoji: "calendar"
+    - name: "upcoming"
+      title: "Upcoming"
+      emoji: "clock"

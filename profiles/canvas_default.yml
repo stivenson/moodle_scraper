@@ -1,0 +1,69 @@
+# Perfil genérico para Canvas LMS
+metadata:
+  name: "Canvas LMS"
+  version: "1.0.0"
+  description: "Perfil genérico para Canvas"
+  lms_type: "canvas"
+
+auth:
+  login_path: "/login/canvas"
+  form_selectors:
+    username: "#pseudonym_session_unique_id"
+    password: "#pseudonym_session_password"
+    submit: ".Button--login"
+  success_indicators:
+    - url_contains: "/courses"
+  error_indicators: []
+
+navigation:
+  courses_page: "/"
+  dashboard: "/"
+
+courses:
+  container: "#dashboard_header_container"
+  selectors:
+    - "a[href*='/courses/']"
+  extract:
+    name: "text"
+    url: "href"
+
+assignments:
+  types:
+    - name: "assignment"
+      selectors:
+        - "a[href*='/assignments/']"
+
+dates:
+  locale: "en"
+  formats:
+    - "%Y-%m-%d"
+    - "%B %d, %Y"
+  selectors:
+    - ".due-date"
+  patterns: []
+
+submission:
+  status_table: ""
+  indicators:
+    submitted: ["submitted"]
+    pending: ["not submitted"]
+
+sections:
+  tab_selectors: []
+  max_tabs: 0
+
+reports:
+  title_template: "Reporte de Tareas - {portal_name}"
+  sections:
+    - name: "submitted"
+      title: "Recently Submitted"
+      emoji: "rocket"
+    - name: "overdue"
+      title: "Overdue"
+      emoji: "warning"
+    - name: "due_today"
+      title: "Due Today"
+      emoji: "calendar"
+    - name: "upcoming"
+      title: "Upcoming"
+      emoji: "clock"
