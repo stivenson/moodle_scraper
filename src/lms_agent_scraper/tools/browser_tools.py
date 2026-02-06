@@ -236,9 +236,12 @@ def get_course_links_with_playwright(
     headless: bool = True,
     timeout_ms: int = 20000,
     debug: bool = False,
+    course_discovery_profile: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, str]]:
     """
     Obtiene la lista de cursos desde la página de cursos usando Playwright y cookies de sesión.
+    Si course_discovery_profile tiene fallback_when_empty: true y no se encontraron cursos,
+    se usa el agente de descubrimiento por contenido (visitar enlaces y clasificar con LLM).
     """
     if not PLAYWRIGHT_AVAILABLE:
         return []
@@ -286,6 +289,7 @@ def get_course_links_with_playwright(
                         log.debug("  [DEBUG] No course cards selector, continuing")
             time.sleep(1)
             html_snapshot = page.content()
+            log.info("  -> HTML de pagina de cursos: %d caracteres", len(html_snapshot or ""))
             if debug:
                 from pathlib import Path
                 debug_dir = Path("debug_html")
@@ -299,6 +303,7 @@ def get_course_links_with_playwright(
                 log.info("  -> Cursos obtenidos con LLM (Ollama): %d", len(course_list))
                 browser.close()
                 return course_list
+            log.info("  -> LLM no disponible o devolvio 0 cursos; probando selectores Playwright...")
 
             # Respaldo: locators de Playwright según el perfil
             seen_urls: set = set()
@@ -323,12 +328,33 @@ def get_course_links_with_playwright(
                         continue
                 if course_list:
                     break
+            if course_list:
+                log.info("  -> Cursos obtenidos con selectores Playwright: %d", len(course_list))
+            else:
+                log.info("  -> Selectores Playwright: 0 enlaces; probando respaldo HTML (BeautifulSoup)...")
 
             # Respaldo: extraer desde el HTML parseado (BeautifulSoup)
             if not course_list and BS4_AVAILABLE:
                 course_list = _extract_courses_from_html(html_snapshot, base_url, debug=debug)
-                if course_list and debug:
-                    log.debug("  [DEBUG] Courses extracted from HTML fallback: %d", len(course_list))
+                if course_list:
+                    log.info("  -> Cursos obtenidos con respaldo HTML: %d", len(course_list))
+                else:
+                    log.warning("  -> Respaldo HTML: 0 cursos. Revisar selectores o que la pagina muestre 'Mis cursos'.")
+
+            # Fallback: descubrimiento por contenido (visitar enlaces y clasificar con LLM)
+            if not course_list and course_discovery_profile and course_discovery_profile.get("fallback_when_empty"):
+                from lms_agent_scraper.agents.course_discovery_agent import discover_courses_by_visiting_links
+                log.info("  -> Ejecutando discovery por contenido (visitar enlaces + LLM)...")
+                course_list = discover_courses_by_visiting_links(
+                    page=page,
+                    base_url=base_url,
+                    html_current_page=html_snapshot,
+                    discovery_config=course_discovery_profile,
+                    timeout_ms=min(timeout_ms, 15000),
+                    debug=debug,
+                )
+                if course_list:
+                    log.info("  -> Cursos obtenidos con discovery por contenido: %d", len(course_list))
 
             browser.close()
     except Exception as e:

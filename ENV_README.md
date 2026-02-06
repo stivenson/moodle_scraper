@@ -5,16 +5,21 @@
 ```
 unisimon_scraper/
 ├── venv/                          # Entorno virtual de Python
-├── activate_env.bat              # Script de activación (Windows)
-├── scraper_hybrid.py             # Scraper principal híbrido
-├── scraper.py                    # Scraper básico con BeautifulSoup
-├── scraper_selenium.py           # Scraper con Selenium
-├── config.py                     # Configuración y credenciales
-├── utils.py                      # Funciones auxiliares
-├── requirements.txt              # Dependencias del proyecto
-├── README.md                     # Documentación principal
-├── reports/                      # Reportes generados
-└── debug_html/                   # Archivos HTML de debug
+├── activate_env.bat               # Script de activación (Windows)
+├── .env.example                   # Plantilla de variables (v2)
+├── scraper.py                     # Scraper básico (legacy)
+├── scraper_hybrid.py              # Scraper híbrido (legacy)
+├── scraper_selenium.py            # Scraper con Selenium (legacy)
+├── config.py                      # Configuración legacy
+├── utils.py                       # Utilidades legacy
+├── requirements.txt
+├── pyproject.toml                 # Paquete v2 (pip install -e .)
+├── profiles/                      # Perfiles YAML por portal (v2)
+├── src/lms_agent_scraper/        # LMS Agent Scraper v2 (CLI, MCP, workflow)
+├── docs/
+├── tests/
+├── reports/                       # Reportes generados
+└── debug_html/                    # HTML de debug
 ```
 
 ## 🚀 Cómo usar el entorno virtual

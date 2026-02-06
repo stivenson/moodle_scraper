@@ -1,6 +1,5 @@
 """Nodos del grafo LangGraph para el scraper."""
 import logging
-from pathlib import Path
 from typing import Any, Dict
 
 from lms_agent_scraper.graph.state import ScraperState
@@ -69,6 +68,7 @@ def course_discovery_node(state: ScraperState) -> Dict[str, Any]:
     profile = state.get("profile") or {}
     navigation = profile.get("navigation", {})
     courses_config = profile.get("courses", {})
+    course_discovery_config = profile.get("course_discovery")
     base_url = state.get("base_url", "")
     cookies = state.get("session_cookies", [])
 
@@ -80,6 +80,7 @@ def course_discovery_node(state: ScraperState) -> Dict[str, Any]:
             cookies=cookies,
             headless=True,
             debug=state.get("_debug", False),
+            course_discovery_profile=course_discovery_config,
         )
         updates["courses"] = courses
         log.info("[2/5] Descubrimiento de cursos: listo - %d curso(s) encontrado(s).", len(courses))

@@ -6,21 +6,44 @@ Un scraper automatizado para extraer tareas pendientes del portal de Unisimon Au
 
 ## 🚀 Características
 
-- ✅ Autenticación automática en el portal
-- 📅 Filtrado de tareas por período personalizable (configurable en días)
+- ✅ Autenticación automática en el portal (Playwright)
+- 📅 Filtrado de tareas por período personalizable (días adelante/atrás)
 - 📊 Generación de reportes en formato Markdown
 - 🔍 Modo debug para análisis del portal
-- 🛠️ Preparado para migración a Selenium si es necesario
+- 🛠️ **v2:** Workflow LangGraph (auth → discovery → extracción → reporte), perfiles YAML, MCP
+- 🛠️ **v2:** Detección de cursos con LLM (Ollama), selectores Playwright/BeautifulSoup y fallback por contenido (visitar enlaces y clasificar con LLM)
+- 🛠️ Scripts legacy: `scraper.py`, `scraper_selenium.py`, `scraper_hybrid.py` para uso sin el paquete v2
 
 ## 📁 Estructura del Proyecto
 
 ```
 unisimon_scraper/
-├── scraper.py          # Script principal
-├── config.py           # Configuración y credenciales
-├── utils.py            # Funciones auxiliares
-├── requirements.txt    # Dependencias
-└── README.md          # Este archivo
+├── scraper.py              # Script principal (legacy)
+├── scraper_selenium.py     # Alternativa con Selenium (legacy)
+├── scraper_hybrid.py       # Híbrido (legacy)
+├── config.py               # Configuración legacy
+├── utils.py                # Utilidades legacy
+├── requirements.txt
+├── pyproject.toml          # Paquete instalable (v2)
+├── .env.example            # Plantilla de variables para v2
+├── profiles/               # Perfiles YAML por portal (v2)
+│   ├── moodle_unisimon.yml
+│   ├── moodle_default.yml
+│   └── ...
+├── src/lms_agent_scraper/  # LMS Agent Scraper (v2)
+│   ├── cli.py              # Comandos: run, profiles list/validate
+│   ├── agents/             # Agentes (login, course discovery, analyzer)
+│   ├── graph/              # Workflow LangGraph (nodes, workflow, state)
+│   ├── llm/                # Cliente Ollama (extracción y clasificación)
+│   ├── tools/              # browser_tools, extraction_tools, report_tools
+│   ├── core/               # date_parser, profile_loader
+│   └── mcp/                # Servidor MCP
+├── docs/
+│   ├── AGENT_SKILLS.md
+│   ├── ARCHITECTURE_VERIFICATION.md
+│   └── SOLID_AND_QUALITY.md
+├── tests/
+└── reports/                # Reportes Markdown generados
 ```
 
 ## ⚙️ Configuración
@@ -145,7 +168,7 @@ class UnisimonSeleniumScraper:
 ## 📝 Notas Importantes
 
 - ⚠️ **Uso Responsable**: Este scraper es para uso personal únicamente
-- 🔒 **Seguridad**: Las credenciales se almacenan en texto plano en `config.py`
+- 🔒 **Seguridad**: En el flujo legacy las credenciales están en `config.py`; en v2 se usan variables de entorno (`.env`, no versionado; ver `.env.example`). Entorno virtual: `ENV_README.md`.
 - 📊 **Limitaciones**: Depende de la estructura HTML del portal
 - 🔄 **Mantenimiento**: Puede requerir actualizaciones si el portal cambia
 
@@ -171,20 +194,21 @@ Si encuentras problemas:
 ### Configuración
 
 1. Copiar `.env.example` a `.env` y configurar:
-   - `PORTAL_PROFILE` (ej: `moodle_default` o `moodle_unisimon`)
+   - `PORTAL_PROFILE` (ej: `moodle_unisimon` o `moodle_default`)
    - `PORTAL_BASE_URL`, `PORTAL_USERNAME`, `PORTAL_PASSWORD`
-   - Opcional: `SCRAPER_DAYS_AHEAD`, `SCRAPER_DAYS_BEHIND`
-   - Opcional (Ollama): `OLLAMA_BASE_URL`, `OLLAMA_MODEL_NAME`, `OLLAMA_TEMPERATURE`, `OLLAMA_NUM_CTX`, `OLLAMA_NUM_PREDICT`, `OLLAMA_REQUEST_TIMEOUT` — método principal para extraer la lista de cursos cuando Ollama está disponible; también para el agente analizador de selectores. Si Ollama no está disponible, se usan Playwright y BeautifulSoup como respaldo. Requiere Ollama en ejecución y un modelo (p. ej. `ollama run glm-4.7-flash`). Ver [ollama.com/library/glm-4.7-flash](https://ollama.com/library/glm-4.7-flash).
+   - Opcional: `SCRAPER_DAYS_AHEAD`, `SCRAPER_DAYS_BEHIND`, `SCRAPER_MAX_COURSES`, `SCRAPER_OUTPUT_DIR`
+   - Opcional (Ollama): `OLLAMA_BASE_URL`, `OLLAMA_MODEL_NAME`, `OLLAMA_TEMPERATURE`, `OLLAMA_NUM_CTX`, `OLLAMA_NUM_PREDICT` — usado para extraer la lista de cursos desde el HTML, clasificar páginas como “curso” en el discovery por contenido y (en el futuro) sugerir selectores. Requiere Ollama en ejecución y un modelo (p. ej. `ollama run glm-4.7-flash`). Ver [ollama.com/library/glm-4.7-flash](https://ollama.com/library/glm-4.7-flash). Si no está disponible, se usan Playwright y BeautifulSoup como respaldo.
 
-2. Perfiles YAML en `profiles/` definen selectores por tipo de portal (Moodle, Canvas, etc.).
+2. Perfiles YAML en `profiles/` definen selectores, auth y opciones por portal (Moodle, Canvas, etc.). El perfil `moodle_unisimon` incluye `course_discovery` para el fallback por contenido.
 
 ### Detección de cursos (v2)
 
-En la página "Mis cursos" del portal, la lista de cursos se obtiene así:
+En la página "Mis cursos" del portal, la lista de cursos se obtiene en este orden:
 
 1. **LLM (Ollama)** — método principal: si Ollama está disponible, se envía un fragmento del HTML al modelo configurado (p. ej. GLM-4.7-Flash) para que devuelva un JSON con la lista de cursos (nombre y URL). Requiere Ollama en ejecución y el modelo descargado.
 2. **Playwright** — respaldo: si el LLM no está disponible o no devuelve cursos, se espera a las tarjetas (p. ej. `[data-region='course-content']` o `.course-card`) y se extraen enlaces con los locators del perfil.
 3. **BeautifulSoup** — respaldo: si aún no hay cursos, se parsea el HTML y se buscan tarjetas, enlaces con clase `coursename` y URLs a `course/view.php`.
+4. **Discovery por contenido** — fallback opcional (perfil `course_discovery.fallback_when_empty: true`): si sigue habiendo 0 cursos, se extraen enlaces candidatos de la página, se visita cada uno con la misma sesión y el LLM clasifica si el contenido es una página de curso; solo esas URLs se consideran cursos. Configurable en el perfil (`max_candidates`, `candidate_patterns`). Ver perfil `moodle_unisimon.yml`.
 
 ### Uso
 
@@ -195,12 +219,15 @@ pip install -e .
 # Ejecutar scraper
 python -m lms_agent_scraper.cli run
 
-# Con perfil específico
-python -m lms_agent_scraper.cli run --profile moodle_default
+# Con perfil específico (ej. Unisimon Aula Pregrado)
+python -m lms_agent_scraper.cli run --profile moodle_unisimon
 
 # Listar y validar perfiles
 python -m lms_agent_scraper.cli profiles list
-python -m lms_agent_scraper.cli profiles validate moodle_default
+python -m lms_agent_scraper.cli profiles validate moodle_unisimon
+
+# Tests (desde la raíz del repo)
+pytest tests/ -v
 ```
 
 ### MCP Server (Cursor / Claude Desktop)
@@ -230,7 +257,7 @@ Herramientas expuestas: `get_pending_assignments`, `get_submitted_assignments`, 
 
 Este proyecto se desarrolla con Cursor. Se usan **reglas globales** en `~/.cursor/rules/` (aplican a todos los proyectos):
 
-- **SOLID y calidad**: `solid-and-quality.mdc` — principios SOLID, DRY y buenas prácticas.
+- **SOLID y calidad**: `solid-and-quality.mdc` — principios SOLID, DRY y buenas prácticas. Copia en el repo: [docs/SOLID_AND_QUALITY.md](docs/SOLID_AND_QUALITY.md). Verificación de cumplimiento: [docs/ARCHITECTURE_VERIFICATION.md](docs/ARCHITECTURE_VERIFICATION.md).
 - **Idioma**: `comments-spanish-code-english.mdc` — comentarios y docstrings en español; nombres de código en inglés.
 
 **MCPs opcionales** (instalados en `C:\MCPs\` y configurados en `~/.cursor/mcp.json`):

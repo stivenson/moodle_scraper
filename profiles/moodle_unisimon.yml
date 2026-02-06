@@ -35,6 +35,14 @@ courses:
     name: "text"
     url: "href"
 
+# Discovery por contenido: si no se encuentran cursos, visitar enlaces y clasificar con LLM
+course_discovery:
+  fallback_when_empty: true
+  max_candidates: 25
+  candidate_patterns:
+    - "course/view.php"
+    - "/course/"
+
 assignments:
   types:
     - name: "assignment"

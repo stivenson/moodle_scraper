@@ -3,11 +3,14 @@ Cliente Ollama para GLM-4.7-Flash: análisis de HTML, interpretación de fechas,
 extracción de cursos desde la página "Mis cursos" (fallback con LLM).
 """
 import json
+import logging
 import re
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
 from lms_agent_scraper.config.ollama_config import OllamaSettings
+
+logger = logging.getLogger(__name__)
 
 try:
     from langchain_ollama import ChatOllama
@@ -46,7 +49,9 @@ class LocalLLMClient:
             return ""
         try:
             response = self._llm.invoke([HumanMessage(content=prompt)])
-            return (response.content or "").strip()
+            out = (response.content or "").strip()
+            logger.info("Respuesta del modelo: %s", out[:2000] + ("..." if len(out) > 2000 else ""))
+            return out
         except Exception:
             return ""
 
@@ -173,3 +178,52 @@ HTML:
             seen.add(url)
             result.append({"url": url, "name": name or "Sin nombre"})
         return result
+
+    def classify_page_as_course(
+        self, html: str, url: str = "", max_chars: int = 8000
+    ) -> Dict[str, Any]:
+        """
+        Clasifica si el HTML corresponde a una página de curso en un LMS tipo Moodle.
+        Busca señales: título del curso, secciones/módulos, enlaces a actividades (assign, quiz, forum).
+        Retorna {"is_course": bool, "course_name": str}. course_name vacío si no es curso.
+        """
+        default = {"is_course": False, "course_name": ""}
+        if not self.available or not html:
+            return default
+        snippet = re.sub(r"<script[^>]*>[\s\S]*?</script>", "", html, flags=re.IGNORECASE)
+        snippet = re.sub(r"<style[^>]*>[\s\S]*?</style>", "", snippet, flags=re.IGNORECASE)
+        snippet = snippet[:max_chars] if len(snippet) > max_chars else snippet
+        url_hint = f"\nURL de la página: {url}" if url else ""
+        prompt = f"""El siguiente HTML es de un sitio LMS tipo Moodle (ej. Aula Pregrado).
+Determina si esta página es una PÁGINA DE CURSO (vista principal de un curso), no una lista de cursos ni el dashboard.
+
+Señales de página de curso:
+- Título del curso (h1, .course-header, .page-header, o similar).
+- Secciones o módulos del curso (temas, semanas).
+- Enlaces a actividades: mod/assign, mod/quiz, mod/forum, tareas, foros, cuestionarios.
+- Navegación típica de curso (pestañas, bloques laterales de curso).
+
+Si es solo una lista de cursos, el dashboard, login o una página genérica, NO es página de curso.
+{url_hint}
+
+Responde ÚNICAMENTE con un JSON válido, sin markdown, con exactamente estas claves:
+{{"is_course": true o false, "course_name": "nombre del curso tal como aparece en la página o vacío si no es curso"}}
+
+HTML:
+{snippet}
+"""
+        out = self._invoke(prompt)
+        if not out:
+            return default
+        out = re.sub(r"^```\w*\n?", "", out)
+        out = re.sub(r"\n?```\s*$", "", out)
+        out = out.strip()
+        try:
+            data = json.loads(out)
+        except json.JSONDecodeError:
+            return default
+        if not isinstance(data, dict):
+            return default
+        is_course = bool(data.get("is_course", False))
+        course_name = (data.get("course_name") or "").strip()
+        return {"is_course": is_course, "course_name": course_name}
