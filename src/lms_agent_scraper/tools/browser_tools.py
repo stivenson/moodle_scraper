@@ -6,7 +6,7 @@ import logging
 import re
 import time
 from typing import Any, Dict, List, Optional
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +29,52 @@ DEFAULT_FALLBACK_CONTAINERS = [
     ".card-grid",
     ".card-deck",
 ]
+
+# Palabras clave para detectar enlaces a curso por segmento del path (case-insensitive).
+# Si algún segmento del path de la URL contiene alguna de estas palabras, se considera enlace a curso.
+DEFAULT_COURSE_LINK_SEGMENTS = ["course", "courses", "cursos"]
+
+
+def _is_course_url_by_segment(
+    href: str,
+    base_url: str,
+    segment_keywords: List[str],
+) -> bool:
+    """
+    Indica si el href es un enlace a curso según segmentos del path.
+    Un enlace es de curso si algún segmento del path contiene alguna de las palabras
+    en segment_keywords (comparación case-insensitive).
+    """
+    if not href or not segment_keywords:
+        return False
+    base_url = base_url.rstrip("/")
+    try:
+        full_url = urljoin(base_url + "/", href)
+        parsed = urlparse(full_url)
+        path = (parsed.path or "").strip("/")
+    except Exception:
+        return False
+    segments = [s.lower() for s in path.split("/") if s]
+    keywords_lower = [k.lower() for k in segment_keywords if k]
+    for seg in segments:
+        for kw in keywords_lower:
+            if kw in seg:
+                return True
+    return False
+
+
+def _get_course_link_segments_from_profile(courses_profile: Optional[Dict[str, Any]]) -> List[str]:
+    """
+    Obtiene la lista de palabras clave para detectar enlaces a curso desde el perfil.
+    Soporta course_link_segments (lista) o course_link_segment (singular); si no hay nada, usa default.
+    """
+    profile = courses_profile or {}
+    if "course_link_segments" in profile and profile["course_link_segments"]:
+        segments = profile["course_link_segments"]
+        return segments if isinstance(segments, list) else [str(segments)]
+    if "course_link_segment" in profile and profile["course_link_segment"]:
+        return [str(profile["course_link_segment"])]
+    return list(DEFAULT_COURSE_LINK_SEGMENTS)
 
 
 def detect_more_navigation(
@@ -323,6 +369,41 @@ def _extract_courses_from_html(
 
 
 
+def _extract_courses_by_link_segment(
+    html: str,
+    base_url: str,
+    courses_profile: Optional[Dict[str, Any]] = None,
+    debug: bool = False,
+) -> List[Dict[str, str]]:
+    """
+    Extrae cursos buscando todos los enlaces cuya URL tenga en algún segmento del path
+    una de las palabras clave configuradas (p. ej. course, courses, cursos). No depende de CSS.
+    """
+    if not BS4_AVAILABLE or not html:
+        return []
+    base_url = base_url.rstrip("/")
+    segment_keywords = _get_course_link_segments_from_profile(courses_profile)
+    soup = BeautifulSoup(html, "html.parser")
+    seen_urls: set = set()
+    course_list: List[Dict[str, str]] = []
+    for a in soup.find_all("a", href=True):
+        href = (a.get("href") or "").strip()
+        if not href or href.startswith("#") or href.startswith("javascript:"):
+            continue
+        if not _is_course_url_by_segment(href, base_url, segment_keywords):
+            continue
+        url = urljoin(base_url + "/", href)
+        if url in seen_urls:
+            continue
+        name = (a.get_text(strip=True) or "").strip()
+        if len(name) >= 2 or (len(name) >= 1 and len(url) >= 10):
+            seen_urls.add(url)
+            course_list.append({"url": url, "name": name or "Sin nombre"})
+    if debug and course_list:
+        log.debug("  [link_segment] Encontrados %d cursos por segmento URL (keywords: %s)", len(course_list), segment_keywords)
+    return course_list
+
+
 def _extract_courses_with_llm(html: str, base_url: str, debug: bool = False) -> List[Dict[str, str]]:
     """
     Usa el LLM local (Ollama / GLM-4.7-Flash) para extraer cursos desde el HTML de "Mis cursos".
@@ -427,6 +508,20 @@ def get_course_links_with_playwright(
                 presence.get("selector_matched") or "n/a",
             )
 
+            # 0) Extracción por segmento de URL (palabras clave: course, courses, cursos, etc.)
+            segment_keywords = _get_course_link_segments_from_profile(courses_profile)
+            course_list = _extract_courses_by_link_segment(
+                html_snapshot, base_url, courses_profile=courses_profile, debug=debug
+            )
+            if course_list:
+                log.info(
+                    "  -> Cursos obtenidos por enlaces (segmento URL, keywords=%s): %d",
+                    segment_keywords,
+                    len(course_list),
+                )
+                browser.close()
+                return course_list
+
             # 1) Extracción con BeautifulSoup (selectores del perfil o defaults Moodle)
             if BS4_AVAILABLE:
                 course_list = _extract_courses_from_html(
@@ -446,33 +541,60 @@ def get_course_links_with_playwright(
                 return course_list
             log.info("  -> LLM no disponible o devolvio 0; probando selectores Playwright...")
 
-            # 3) Playwright locators según el perfil
+            # 3) Playwright: primero todos los enlaces filtrados por segmento URL, luego selectores CSS
             seen_urls: set = set()
-            scope = page
+            segment_keywords_playwright = _get_course_link_segments_from_profile(courses_profile)
             try:
-                if page.locator(container_sel).count() > 0:
-                    scope = page.locator(container_sel).first
-            except Exception:
-                pass
-            for sel in selectors:
-                links = scope.locator(sel).all()
-                for link in links:
+                for link_el in page.locator("a[href]").all():
                     try:
-                        href = link.get_attribute("href")
-                        text = (link.inner_text() or "").strip()
-                        if href and link_href_pattern in href and len(text) >= 1:
-                            url = urljoin(base_url + "/", href)
-                            if url not in seen_urls:
-                                seen_urls.add(url)
-                                course_list.append({"url": url, "name": text.strip()})
+                        href = link_el.get_attribute("href")
+                        if not href:
+                            continue
+                        if not _is_course_url_by_segment(href, base_url, segment_keywords_playwright):
+                            continue
+                        url = urljoin(base_url + "/", href)
+                        if url in seen_urls:
+                            continue
+                        text = (link_el.inner_text() or "").strip()
+                        if len(text) >= 2 or (len(text) >= 1 and len(url) >= 10):
+                            seen_urls.add(url)
+                            course_list.append({"url": url, "name": text or "Sin nombre"})
                     except Exception:
                         continue
-                if course_list:
-                    break
+            except Exception:
+                pass
             if course_list:
-                log.info("  -> Cursos obtenidos con selectores Playwright: %d", len(course_list))
+                log.info(
+                    "  -> Cursos obtenidos con Playwright (enlaces por segmento URL): %d",
+                    len(course_list),
+                )
             else:
-                log.info("  -> Selectores Playwright: 0 enlaces.")
+                # 3b) Selectores CSS del perfil
+                scope = page
+                try:
+                    if page.locator(container_sel).count() > 0:
+                        scope = page.locator(container_sel).first
+                except Exception:
+                    pass
+                for sel in selectors:
+                    links = scope.locator(sel).all()
+                    for link in links:
+                        try:
+                            href = link.get_attribute("href")
+                            text = (link.inner_text() or "").strip()
+                            if href and link_href_pattern in href and len(text) >= 1:
+                                url = urljoin(base_url + "/", href)
+                                if url not in seen_urls:
+                                    seen_urls.add(url)
+                                    course_list.append({"url": url, "name": text.strip()})
+                        except Exception:
+                            continue
+                    if course_list:
+                        break
+                if course_list:
+                    log.info("  -> Cursos obtenidos con selectores Playwright: %d", len(course_list))
+                else:
+                    log.info("  -> Selectores Playwright: 0 enlaces.")
 
             if presence["has_courses"] and not course_list:
                 log.warning(

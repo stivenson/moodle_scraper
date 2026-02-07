@@ -23,9 +23,15 @@ navigation:
 
 # Vista de paneles/tarjetas en /my/courses.php (Moodle 4 block_myoverview)
 # Estructura: data-region="courses-view" -> card-deck -> course-content por tarjeta
+# course_link_segments: palabras que identifican un enlace a curso si aparecen en algún segmento
+# del path de la URL (comparación case-insensitive). La extracción por segmento se intenta primero.
 # Selectores genéricos: card_selectors, name_selectors, link_selector, link_href_pattern,
 # fallback_containers y more_navigation son opcionales; si no se definen se usan defaults Moodle.
 courses:
+  course_link_segments:
+    - "course"
+    - "courses"
+    - "cursos"
   container: "[data-region='courses-view']"
   # Selectores Playwright para enlaces a curso (orden: más específico primero)
   selectors:

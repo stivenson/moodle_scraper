@@ -209,10 +209,11 @@ Si encuentras problemas:
 
 En la página "Mis cursos" del portal, la lista de cursos se obtiene en este orden:
 
-1. **BeautifulSoup (HTML)** — método principal: se parsea el HTML con los selectores del perfil (tarjetas, nombre, enlace; ver esquema del bloque `courses` más abajo). Si se encuentran cursos, se devuelven sin usar LLM ni Playwright.
-2. **LLM (Ollama)** — respaldo: si BeautifulSoup no devuelve cursos y Ollama está disponible, se envía un fragmento del HTML al modelo configurado para que devuelva un JSON con la lista de cursos (nombre y URL).
-3. **Playwright** — respaldo: se extraen enlaces con los locators del perfil (`courses.selectors`) dentro del contenedor opcional (`courses.container`).
-4. **Discovery por contenido** — fallback opcional (perfil `course_discovery.fallback_when_empty: true`): si sigue habiendo 0 cursos, se extraen enlaces candidatos, se visitan y el LLM clasifica si son páginas de curso. Configurable con `max_candidates` y `candidate_patterns`.
+1. **Enlaces por segmento de URL** — método principal: se buscan todos los enlaces cuya URL tenga en **algún segmento del path** una de las palabras clave configuradas (p. ej. `course`, `courses`, `cursos`). La comparación es **case-insensitive**. No depende de clases ni selectores CSS. Se configura con `course_link_segments` (lista) o `course_link_segment` (singular) en el perfil; si no se define, se usa por defecto `["course", "courses", "cursos"]`.
+2. **BeautifulSoup (HTML)** — respaldo: se parsea el HTML con los selectores del perfil (tarjetas, nombre, enlace; ver esquema del bloque `courses` más abajo).
+3. **LLM (Ollama)** — respaldo: si BeautifulSoup no devuelve cursos y Ollama está disponible, se envía un fragmento del HTML al modelo configurado para que devuelva un JSON con la lista de cursos (nombre y URL).
+4. **Playwright** — respaldo: primero se prueban todos los enlaces de la página filtrados por las mismas palabras de segmento; si no hay resultados, se usan los locators del perfil (`courses.selectors`) dentro del contenedor opcional (`courses.container`).
+5. **Discovery por contenido** — fallback opcional (perfil `course_discovery.fallback_when_empty: true`): si sigue habiendo 0 cursos, se extraen enlaces candidatos, se visitan y el LLM clasifica si son páginas de curso. Configurable con `max_candidates` y `candidate_patterns`.
 
 Antes de extraer, se detecta la presencia de tarjetas de curso (`detect_courses_presence`) y, si el perfil lo indica, se puede expandir "Ver más" / paginación (`more_navigation`) antes de capturar el HTML.
 
@@ -222,6 +223,8 @@ Todos los campos son **opcionales**. Si no se definen, se usan valores por defec
 
 | Campo | Descripción | Por defecto (Moodle) |
 |-------|-------------|----------------------|
+| `course_link_segments` | Lista de palabras que identifican un enlace a curso si aparecen en algún segmento del path de la URL (case-insensitive). Ej.: `["course", "courses", "cursos"]`. | `["course", "courses", "cursos"]` |
+| `course_link_segment` | Alternativa en singular (una sola palabra); se convierte en lista de un elemento. | — |
 | `container` | Contenedor opcional para acotar la búsqueda (Playwright). | `[data-region='courses-view']` |
 | `selectors` | Lista de selectores CSS para enlaces a curso (Playwright). | `a[href*='course/view.php']` |
 | `card_selectors` | Selectores que identifican una tarjeta/ítem de curso (BeautifulSoup y detección de presencia). | `[data-region='course-content']`, `div.card.course-card` |
