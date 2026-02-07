@@ -34,9 +34,14 @@ reports/*.pdf
 debug_html/*
 !debug_html/.gitkeep
 
-# IDE
+# IDE y agentes
 .idea/
 .vscode/
+.trae/
+.agent/
+.agents/
+.claude/
+.cursor/
 *.swp
 *.swo
 

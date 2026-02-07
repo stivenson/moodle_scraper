@@ -38,6 +38,7 @@ unisimon_scraper/
 │   ├── tools/              # browser_tools, extraction_tools, report_tools
 │   ├── core/               # date_parser, profile_loader
 │   └── mcp/                # Servidor MCP
+├── .agents/skills/         # Skills de skills.sh (agent-browser, pdf, webapp-testing, etc.)
 ├── docs/
 │   ├── AGENT_SKILLS.md
 │   ├── ARCHITECTURE_VERIFICATION.md
@@ -272,14 +273,18 @@ Para analizar este repo con unused-vars (y opcionalmente el `.env`), el agente p
 
 ### Agent Skills (skills.sh)
 
-Para mejorar el comportamiento de agentes al trabajar con este repo, instala skills recomendados:
+Para mejorar el comportamiento de agentes al trabajar con este repo, instala skills desde [skills.sh](https://skills.sh/). Se instalan en **`.agents/skills/`** y **Cursor (y otros agentes compatibles) los usan automáticamente** al trabajar en este repositorio. En `docs/AGENT_SKILLS.md` encontrarás la lista por prioridad, la tabla labores–skills y la integración con los agentes.
+
+**Esenciales:** `vercel-labs/agent-browser`, `anthropics/skills` (incluye pdf y webapp-testing). **Recomendados:** `browser-use/browser-use`, `obra/superpowers`. **Opcionales:** `wshobson/agents`.
 
 ```bash
-npx skills add vercel-labs/agent-browser
-npx skills add anthropics/pdf
+npx skills add vercel-labs/agent-browser --yes
+npx skills add anthropics/skills --yes
+npx skills add browser-use/browser-use --yes
+npx skills add obra/superpowers --yes
 ```
 
-Ver `docs/AGENT_SKILLS.md` para la lista completa.
+Ver `docs/AGENT_SKILLS.md` para todos los comandos y `npx skills list` para listar los instalados.
 
 ---
 
