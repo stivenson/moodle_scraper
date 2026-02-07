@@ -17,6 +17,9 @@ EXPECTED_VARIABLES = {
     "html-structure-analyzer": ["snippet"],
 }
 
+# Skills que solo tienen recursos (ej. report_template.md), sin System/Human Message
+RESOURCE_ONLY_SKILLS = ["report-generator"]
+
 
 def validate_skill(skill_name: str, expected_vars: list, skill_loader: SkillLoader) -> bool:
     """Valida un skill: formato y variables en Human Message Template."""
@@ -41,6 +44,22 @@ def validate_skill(skill_name: str, expected_vars: list, skill_loader: SkillLoad
             else:
                 print(f"  Variable {{{var}}} NO encontrada en Human Message Template")
                 return False
+        print(f"  OK {skill_name}")
+        return True
+    except Exception as e:
+        print(f"  Error: {e}")
+        return False
+
+
+def validate_resource_only_skill(skill_name: str, skill_loader: SkillLoader) -> bool:
+    """Valida un skill de solo recurso (ej. report-generator): recurso y placeholders."""
+    print(f"\n=== Validando skill {skill_name} (recurso) ===")
+    try:
+        is_valid, error = skill_loader.validate_skill(skill_name)
+        if not is_valid:
+            print(f"  Skill inválido: {error}")
+            return False
+        print("  Recurso y placeholders OK")
         print(f"  OK {skill_name}")
         return True
     except Exception as e:
@@ -80,6 +99,9 @@ def main() -> int:
 
     for skill_name, expected_vars in EXPECTED_VARIABLES.items():
         results.append(validate_skill(skill_name, expected_vars, skill_loader))
+
+    for skill_name in RESOURCE_ONLY_SKILLS:
+        results.append(validate_resource_only_skill(skill_name, skill_loader))
 
     print("\n" + "=" * 60)
     print("RESUMEN")

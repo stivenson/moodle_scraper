@@ -11,7 +11,7 @@ Un scraper automatizado para extraer tareas pendientes del portal de Unisimon Au
 - 📊 Generación de reportes en formato Markdown
 - 🔍 Modo debug para análisis del portal
 - 🛠️ **v2:** Workflow LangGraph (auth → discovery → extracción → reporte), perfiles YAML, MCP
-- 🛠️ **v2:** Detección de cursos con LLM (Ollama), selectores Playwright/BeautifulSoup y fallback por contenido (visitar enlaces y clasificar con LLM)
+- 🛠️ **v2:** Detección de cursos: BeautifulSoup (principal), LLM (Ollama) y Playwright como respaldo; detección de presencia de tarjetas; fallback por contenido (visitar enlaces y clasificar con LLM)
 - 🛠️ Scripts legacy: `scraper.py`, `scraper_selenium.py`, `scraper_hybrid.py` para uso sin el paquete v2
 
 ## 📁 Estructura del Proyecto
@@ -122,6 +122,7 @@ Si no se encuentran tareas:
 1. **Portal con JavaScript**: El portal podría usar JavaScript para cargar contenido dinámicamente
 2. **Estructura cambiada**: El portal podría haber cambiado su estructura HTML
 3. **Sin tareas**: Realmente no hay tareas en el período consultado
+4. **v2 / Unisimon**: Si usas el scraper v2 con Unisimon Aula Pregrado, pon `PORTAL_PROFILE=moodle_unisimon` en `.env`. Con `moodle_default` puede que no se detecten las tarjetas de curso. Para depurar: `SCRAPER_DEBUG_MODE=true` y revisar `debug_html/courses_page.html`.
 
 ### Migración a Selenium
 
@@ -197,21 +198,41 @@ Si encuentras problemas:
 ### Configuración
 
 1. Copiar `.env.example` a `.env` y configurar:
-   - `PORTAL_PROFILE` (ej: `moodle_unisimon` o `moodle_default`)
+   - `PORTAL_PROFILE` (ej: `moodle_unisimon` o `moodle_default`). **Para Unisimon Aula Pregrado (aulapregrado.unisimon.edu.co) usar `moodle_unisimon`.**
    - `PORTAL_BASE_URL`, `PORTAL_USERNAME`, `PORTAL_PASSWORD`
-   - Opcional: `SCRAPER_DAYS_AHEAD`, `SCRAPER_DAYS_BEHIND`, `SCRAPER_MAX_COURSES`, `SCRAPER_OUTPUT_DIR`
-   - Opcional (Ollama): `OLLAMA_BASE_URL`, `OLLAMA_MODEL_NAME`, `OLLAMA_TEMPERATURE`, `OLLAMA_NUM_CTX`, `OLLAMA_NUM_PREDICT` — usado para extraer la lista de cursos desde el HTML, clasificar páginas como “curso” en el discovery por contenido y (en el futuro) sugerir selectores. Requiere Ollama en ejecución y un modelo (p. ej. `ollama run glm-4.7-flash`). Ver [ollama.com/library/glm-4.7-flash](https://ollama.com/library/glm-4.7-flash). Si no está disponible, se usan Playwright y BeautifulSoup como respaldo.
+   - Opcional: `SCRAPER_DAYS_AHEAD`, `SCRAPER_DAYS_BEHIND`, `SCRAPER_MAX_COURSES`, `SCRAPER_OUTPUT_DIR`, `SCRAPER_DEBUG_MODE` (guardar HTML en `debug_html/` y más logs)
+   - Opcional (Ollama): `OLLAMA_BASE_URL`, `OLLAMA_MODEL_NAME`, `OLLAMA_TEMPERATURE`, `OLLAMA_NUM_CTX`, `OLLAMA_NUM_PREDICT` — usado para extraer la lista de cursos desde el HTML, clasificar páginas como “curso” en el discovery por contenido y (en el futuro) sugerir selectores. Requiere Ollama en ejecución y un modelo (p. ej. `ollama run glm-4.7-flash`). Ver [ollama.com/library/glm-4.7-flash](https://ollama.com/library/glm-4.7-flash). Si no está disponible, la extracción se hace con BeautifulSoup y Playwright.
 
-2. Perfiles YAML en `profiles/` definen selectores, auth y opciones por portal (Moodle, Canvas, etc.). El perfil `moodle_unisimon` incluye `course_discovery` para el fallback por contenido.
+2. Perfiles YAML en `profiles/` definen selectores, auth y opciones por portal (Moodle, Canvas, etc.). El perfil `moodle_unisimon` está ajustado para Unisimon Aula Pregrado e incluye `course_discovery` para el fallback por contenido.
 
 ### Detección de cursos (v2)
 
 En la página "Mis cursos" del portal, la lista de cursos se obtiene en este orden:
 
-1. **LLM (Ollama)** — método principal: si Ollama está disponible, se envía un fragmento del HTML al modelo configurado (p. ej. GLM-4.7-Flash) para que devuelva un JSON con la lista de cursos (nombre y URL). Requiere Ollama en ejecución y el modelo descargado.
-2. **Playwright** — respaldo: si el LLM no está disponible o no devuelve cursos, se espera a las tarjetas (p. ej. `[data-region='course-content']` o `.course-card`) y se extraen enlaces con los locators del perfil.
-3. **BeautifulSoup** — respaldo: si aún no hay cursos, se parsea el HTML y se buscan tarjetas, enlaces con clase `coursename` y URLs a `course/view.php`.
-4. **Discovery por contenido** — fallback opcional (perfil `course_discovery.fallback_when_empty: true`): si sigue habiendo 0 cursos, se extraen enlaces candidatos de la página, se visita cada uno con la misma sesión y el LLM clasifica si el contenido es una página de curso; solo esas URLs se consideran cursos. Configurable en el perfil (`max_candidates`, `candidate_patterns`). Ver perfil `moodle_unisimon.yml`.
+1. **BeautifulSoup (HTML)** — método principal: se parsea el HTML con los selectores del perfil (tarjetas, nombre, enlace; ver esquema del bloque `courses` más abajo). Si se encuentran cursos, se devuelven sin usar LLM ni Playwright.
+2. **LLM (Ollama)** — respaldo: si BeautifulSoup no devuelve cursos y Ollama está disponible, se envía un fragmento del HTML al modelo configurado para que devuelva un JSON con la lista de cursos (nombre y URL).
+3. **Playwright** — respaldo: se extraen enlaces con los locators del perfil (`courses.selectors`) dentro del contenedor opcional (`courses.container`).
+4. **Discovery por contenido** — fallback opcional (perfil `course_discovery.fallback_when_empty: true`): si sigue habiendo 0 cursos, se extraen enlaces candidatos, se visitan y el LLM clasifica si son páginas de curso. Configurable con `max_candidates` y `candidate_patterns`.
+
+Antes de extraer, se detecta la presencia de tarjetas de curso (`detect_courses_presence`) y, si el perfil lo indica, se puede expandir "Ver más" / paginación (`more_navigation`) antes de capturar el HTML.
+
+#### Esquema del bloque `courses` en el perfil
+
+Todos los campos son **opcionales**. Si no se definen, se usan valores por defecto compatibles con Moodle (block_myoverview / tarjetas). Así puedes reutilizar el mismo código en otros portales (Canvas, Blackboard, Moodle custom) solo configurando el perfil.
+
+| Campo | Descripción | Por defecto (Moodle) |
+|-------|-------------|----------------------|
+| `container` | Contenedor opcional para acotar la búsqueda (Playwright). | `[data-region='courses-view']` |
+| `selectors` | Lista de selectores CSS para enlaces a curso (Playwright). | `a[href*='course/view.php']` |
+| `card_selectors` | Selectores que identifican una tarjeta/ítem de curso (BeautifulSoup y detección de presencia). | `[data-region='course-content']`, `div.card.course-card` |
+| `name_selectors` | Dentro de cada tarjeta, selectores para el nombre del curso (texto o `title`). | `a.coursename`, `span.multiline`, `[title]` |
+| `link_selector` | Dentro de cada tarjeta, selector del enlace al curso. | Enlace cuyo `href` cumple `link_href_pattern` |
+| `link_href_pattern` | Patrón que debe aparecer en el `href` (ej. `course/view`, `/course/`). | `course/view` |
+| `fallback_containers` | Si no hay tarjetas, buscar enlaces dentro de estos contenedores. | `[data-region='courses-view']`, `.card-deck`, `.course-box` |
+| `more_navigation` | Objeto opcional para "Ver más" / paginación antes de extraer. | No se expande |
+| `more_navigation.selectors` | Lista de selectores (ej. `button:has-text('Ver más')`, `a:has-text('Siguiente')`). | — |
+| `more_navigation.expand_before_extract` | Si `true`, hacer click en los controles antes de capturar HTML. | `false` |
+| `more_navigation.max_clicks` | Número máximo de clicks en "Ver más" / siguiente. | `0` |
 
 ### Uso
 
@@ -219,11 +240,13 @@ En la página "Mis cursos" del portal, la lista de cursos se obtiene en este ord
 # Instalar el paquete en modo editable (desde la raíz del repo)
 pip install -e .
 
-# Ejecutar scraper
+# Ejecutar scraper (perfil desde .env, ej. moodle_default)
 python -m lms_agent_scraper.cli run
 
-# Con perfil específico (ej. Unisimon Aula Pregrado)
+# Con perfil específico (recomendado para Unisimon Aula Pregrado)
 python -m lms_agent_scraper.cli run --profile moodle_unisimon
+
+# Modo debug: SCRAPER_DEBUG_MODE=true en .env para guardar HTML en debug_html/ y más logs
 
 # Listar y validar perfiles
 python -m lms_agent_scraper.cli profiles list
@@ -244,7 +267,7 @@ En la configuración MCP del cliente:
       "command": "python",
       "args": ["-m", "lms_agent_scraper.mcp.server"],
       "env": {
-        "PORTAL_PROFILE": "moodle_default",
+        "PORTAL_PROFILE": "moodle_unisimon",
         "PORTAL_BASE_URL": "${env:PORTAL_BASE_URL}",
         "PORTAL_USERNAME": "${env:PORTAL_USERNAME}",
         "PORTAL_PASSWORD": "${env:PORTAL_PASSWORD}"

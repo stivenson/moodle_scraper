@@ -10,10 +10,12 @@ Start → authenticate → course_discovery → assignment_extractor → data_pr
 
 - **authenticate**: [`nodes.authentication_node`] → llama a **browser_tools.login_with_playwright** (única implementación de login).
 - **course_discovery**: [`nodes.course_discovery_node`] → llama a **browser_tools.get_course_links_with_playwright**, que internamente:
-  1. Extrae cursos con LLM desde el HTML de la página de cursos.
-  2. Fallback: selectores Playwright del perfil.
-  3. Fallback: BeautifulSoup sobre el mismo HTML.
-  4. Fallback (si `course_discovery.fallback_when_empty`): **agents.course_discovery_agent.discover_courses_by_visiting_links** (visitar enlaces y clasificar con LLM).
+  1. Opcional: expande "Ver más" / paginación si el perfil define `courses.more_navigation`.
+  2. Detecta presencia de tarjetas (`detect_courses_presence`) y captura HTML.
+  3. Extrae cursos con **BeautifulSoup** (selectores del perfil: tarjetas, nombre, enlace).
+  4. Fallback: **LLM (Ollama)** sobre el mismo HTML.
+  5. Fallback: **selectores Playwright** del perfil.
+  6. Fallback (si `course_discovery.fallback_when_empty`): **agents.course_discovery_agent.discover_courses_by_visiting_links** (visitar enlaces y clasificar con LLM).
 - **assignment_extractor**: usa **extraction_tools.get_assignments_for_courses**.
 - **report_generator**: usa **report_tools.generate_markdown_report** y **save_report**.
 
@@ -77,7 +79,7 @@ Resultado del MCP **unused-vars** sobre `src/lms_agent_scraper` (resumen interpr
 Revisión detallada anterior (manual):
 
 - **S (Single responsibility)**  
-  - **browser_tools**: agrupa login, listado de cursos (LLM + selectores + BS4) y orquestación del fallback por contenido. Podría dividirse en “login” vs “course discovery” si se busca SRP estricto.  
+  - **browser_tools**: agrupa login, listado de cursos (BS4 + LLM + selectores Playwright) y orquestación del fallback por contenido. Podría dividirse en “login” vs “course discovery” si se busca SRP estricto.  
   - **ollama_client**: varias responsabilidades (análisis HTML, fechas, selectores, extracción de cursos, clasificación de página). Cohesión por “uso del LLM”; aceptable; si crece, separar por dominio (ej. “course classifier”, “date interpreter”).  
   - **Nodos**: cada uno tiene una responsabilidad clara (auth, cursos, tareas, proceso, reporte).  
   - **course_discovery_agent**: una responsabilidad (descubrir cursos visitando enlaces y clasificando con LLM). Bien.

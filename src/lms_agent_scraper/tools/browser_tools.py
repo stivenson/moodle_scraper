@@ -10,6 +10,101 @@ from urllib.parse import urljoin
 
 log = logging.getLogger(__name__)
 
+# Defaults tipo Moodle para extracción de cursos (usados cuando el perfil no define card_selectors, etc.)
+DEFAULT_CARD_SELECTORS = [
+    "[data-region='course-content']",
+    ".course-card",
+    "div.card.course-card",
+]
+DEFAULT_NAME_SELECTORS = [
+    "a.aalink.coursename",
+    "a.coursename",
+    ".coursename",
+    "span.multiline",
+    "[title]",
+]
+DEFAULT_LINK_HREF_PATTERN = "course/view"
+DEFAULT_FALLBACK_CONTAINERS = [
+    "[data-region='courses-view']",
+    ".card-grid",
+    ".card-deck",
+]
+
+
+def detect_more_navigation(
+    page: Any,
+    config: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Detecta si la página tiene controles de "más navegación" (Ver más, Siguiente, etc.).
+    config: dict con selectors (lista de selectores CSS o texto), opcional expand_before_extract, max_clicks.
+    Retorna has_more, control_type, element_count.
+    """
+    if not PLAYWRIGHT_AVAILABLE or not config:
+        return {"has_more": False, "control_type": None, "element_count": 0}
+    selectors = config.get("selectors") or []
+    for sel in selectors:
+        try:
+            count = page.locator(sel).count()
+            if count > 0:
+                control_type = "button" if "button" in sel.lower() else "link"
+                return {"has_more": True, "control_type": control_type, "element_count": count}
+        except Exception:
+            continue
+    return {"has_more": False, "control_type": None, "element_count": 0}
+
+
+def _expand_more_navigation(
+    page: Any,
+    config: Dict[str, Any],
+    max_wait_ms: int = 2000,
+) -> None:
+    """Hace click en controles de 'más navegación' hasta max_clicks veces."""
+    selectors = config.get("selectors") or []
+    max_clicks = config.get("max_clicks", 0)
+    if max_clicks <= 0 or not selectors:
+        return
+    for _ in range(max_clicks):
+        clicked = False
+        for sel in selectors:
+            try:
+                loc = page.locator(sel)
+                if loc.count() > 0:
+                    loc.first.click(timeout=3000)
+                    clicked = True
+                    time.sleep(min(max_wait_ms / 1000, 1.5))
+                    break
+            except Exception:
+                continue
+        if not clicked:
+            break
+
+
+def detect_courses_presence(html: str, courses_profile: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Detecta si en el HTML hay tarjetas de curso (sin extraer nombres/URLs).
+    Usa card_selectors del perfil o defaults Moodle.
+    Retorna dict con has_courses, card_count, selector_matched.
+    """
+    if not BS4_AVAILABLE or not html:
+        return {"has_courses": False, "card_count": 0, "selector_matched": None}
+    profile = courses_profile or {}
+    card_selectors = profile.get("card_selectors") or DEFAULT_CARD_SELECTORS
+    soup = BeautifulSoup(html, "html.parser")
+    for sel in card_selectors:
+        try:
+            nodes = soup.select(sel)
+            if nodes:
+                return {
+                    "has_courses": True,
+                    "card_count": len(nodes),
+                    "selector_matched": sel,
+                }
+        except Exception:
+            continue
+    return {"has_courses": False, "card_count": 0, "selector_matched": None}
+
+
 try:
     from bs4 import BeautifulSoup
     BS4_AVAILABLE = True
@@ -132,24 +227,32 @@ def login_with_playwright(
     return result
 
 
-def _extract_courses_from_html(html: str, base_url: str, debug: bool = False) -> List[Dict[str, str]]:
+def _extract_courses_from_html(
+    html: str,
+    base_url: str,
+    courses_profile: Optional[Dict[str, Any]] = None,
+    debug: bool = False,
+) -> List[Dict[str, str]]:
     """
     Extrae la lista de cursos parseando el HTML con BeautifulSoup.
-    Estrategias: tarjetas con data-region='course-content' o .course-card;
-    nombre desde .coursename, span.multiline, texto del enlace o atributo title.
+    Si se pasa courses_profile, usa card_selectors, name_selectors, link_selector,
+    link_href_pattern y fallback_containers del perfil; si no, usa defaults Moodle.
     """
     if not BS4_AVAILABLE:
         return []
     base_url = base_url.rstrip("/")
+    profile = courses_profile or {}
+    card_selectors = profile.get("card_selectors") or DEFAULT_CARD_SELECTORS
+    name_selectors = profile.get("name_selectors") or DEFAULT_NAME_SELECTORS
+    link_selector = profile.get("link_selector")
+    link_href_pattern = profile.get("link_href_pattern") or DEFAULT_LINK_HREF_PATTERN
+    fallback_containers = profile.get("fallback_containers") or DEFAULT_FALLBACK_CONTAINERS
+
+    href_re = re.compile(re.escape(link_href_pattern) if link_href_pattern else "course/view")
     soup = BeautifulSoup(html, "html.parser")
     seen_urls: set = set()
     course_list: List[Dict[str, str]] = []
-    # Selectores de tarjeta de curso (Moodle block_myoverview / Unisimon)
-    card_selectors = [
-        "[data-region='course-content']",
-        ".course-card",
-        "div.card.course-card",
-    ]
+
     cards = []
     for sel in card_selectors:
         try:
@@ -160,53 +263,64 @@ def _extract_courses_from_html(html: str, base_url: str, debug: bool = False) ->
                 break
         except Exception:
             continue
+
     if not cards:
-        # Fallback: cualquier enlace a course/view.php dentro de un contenedor tipo card/grid
-        for container in soup.select("[data-region='courses-view'], .card-grid, .card-deck"):
-            for a in container.find_all("a", href=re.compile(r"course/view\.php")):
-                href = a.get("href")
-                if not href or "course/view" not in href:
-                    continue
-                url = urljoin(base_url + "/", href)
-                if url in seen_urls:
-                    continue
-                name = (a.get_text(strip=True) or "").strip()
-                if not name and a.find_previous("span", class_=re.compile("multiline")):
-                    name = a.find_previous("span", class_=re.compile("multiline")).get_text(strip=True)
-                if len(name) >= 2:
-                    seen_urls.add(url)
-                    course_list.append({"url": url, "name": name or "Sin nombre"})
+        # Fallback: enlaces dentro de contenedores del perfil
+        for container_sel in fallback_containers:
+            for container in soup.select(container_sel):
+                for a in container.find_all("a", href=True):
+                    href = a.get("href") or ""
+                    if not href_re.search(href):
+                        continue
+                    url = urljoin(base_url + "/", href)
+                    if url in seen_urls:
+                        continue
+                    name = (a.get_text(strip=True) or "").strip()
+                    if not name:
+                        prev = a.find_previous("span", class_=re.compile("multiline"))
+                        if prev:
+                            name = prev.get_text(strip=True) or prev.get("title", "")
+                    if len(name) >= 2 or (len(name) >= 1 and len(url) >= 10):
+                        seen_urls.add(url)
+                        course_list.append({"url": url, "name": name or "Sin nombre"})
         return course_list
+
     for card in cards:
-        link = card.find("a", href=re.compile(r"course/view\.php"))
-        if not link:
+        if link_selector:
+            link = card.select_one(link_selector)
+        else:
+            link = card.find("a", href=href_re)
+        if not link or not link.get("href"):
             continue
-        href = link.get("href")
-        if not href:
+        href = link.get("href", "")
+        if not href_re.search(href):
             continue
         url = urljoin(base_url + "/", href)
         if url in seen_urls:
             continue
-        # Nombre: prioridad coursename -> span.multiline -> title -> texto del enlace
         name = ""
-        name_el = card.select_one("a.aalink.coursename, a.coursename, .coursename")
-        if name_el:
-            name = name_el.get_text(strip=True)
-        if not name:
-            mult = card.select_one("span.multiline")
-            if mult:
-                name = mult.get_text(strip=True) or mult.get("title", "")
+        for ns in name_selectors:
+            try:
+                name_el = card.select_one(ns)
+                if name_el:
+                    name = name_el.get_text(strip=True) or name_el.get("title", "") or ""
+                    if name:
+                        break
+            except Exception:
+                continue
         if not name and link:
-            name = link.get_text(strip=True)
+            name = link.get_text(strip=True) or ""
         if not name:
             title_el = card.select_one("[title]")
             if title_el:
-                name = title_el.get("title", "")
+                name = title_el.get("title", "") or ""
         name = (name or "Sin nombre").strip()
         if len(name) >= 1:
             seen_urls.add(url)
             course_list.append({"url": url, "name": name})
     return course_list
+
+
 
 
 def _extract_courses_with_llm(html: str, base_url: str, debug: bool = False) -> List[Dict[str, str]]:
@@ -250,6 +364,7 @@ def get_course_links_with_playwright(
     courses_url = f"{base_url.rstrip('/')}{courses_page_path}"
     container_sel = courses_profile.get("container", "[data-region='courses-view']")
     selectors = courses_profile.get("selectors", ["a[href*='course/view.php']"])
+    link_href_pattern = courses_profile.get("link_href_pattern") or DEFAULT_LINK_HREF_PATTERN
 
     course_list: List[Dict[str, str]] = []
 
@@ -288,6 +403,12 @@ def get_course_links_with_playwright(
                     if debug:
                         log.debug("  [DEBUG] No course cards selector, continuing")
             time.sleep(1)
+
+            # Opcional: expandir "Ver más" / paginación antes de capturar HTML
+            more_nav = courses_profile.get("more_navigation") or {}
+            if more_nav.get("expand_before_extract") and more_nav.get("selectors"):
+                _expand_more_navigation(page, more_nav)
+
             html_snapshot = page.content()
             log.info("  -> HTML de pagina de cursos: %d caracteres", len(html_snapshot or ""))
             if debug:
@@ -297,15 +418,35 @@ def get_course_links_with_playwright(
                 (debug_dir / "courses_page.html").write_text(html_snapshot, encoding="utf-8")
                 log.debug("  [DEBUG] Saved courses_page.html")
 
-            # Método principal: extraer cursos con LLM (Ollama) si está disponible
+            # Detección explícita de presencia de tarjetas de curso
+            presence = detect_courses_presence(html_snapshot, courses_profile)
+            log.info(
+                "  -> Presencia de cursos: has_courses=%s, card_count=%d, selector=%s",
+                presence["has_courses"],
+                presence["card_count"],
+                presence.get("selector_matched") or "n/a",
+            )
+
+            # 1) Extracción con BeautifulSoup (selectores del perfil o defaults Moodle)
+            if BS4_AVAILABLE:
+                course_list = _extract_courses_from_html(
+                    html_snapshot, base_url, courses_profile=courses_profile, debug=debug
+                )
+                if course_list:
+                    log.info("  -> Cursos obtenidos con HTML (BeautifulSoup): %d", len(course_list))
+                    browser.close()
+                    return course_list
+            log.info("  -> BeautifulSoup: 0 cursos; probando LLM...")
+
+            # 2) LLM (Ollama) si está disponible
             course_list = _extract_courses_with_llm(html_snapshot, base_url, debug=debug)
             if course_list:
                 log.info("  -> Cursos obtenidos con LLM (Ollama): %d", len(course_list))
                 browser.close()
                 return course_list
-            log.info("  -> LLM no disponible o devolvio 0 cursos; probando selectores Playwright...")
+            log.info("  -> LLM no disponible o devolvio 0; probando selectores Playwright...")
 
-            # Respaldo: locators de Playwright según el perfil
+            # 3) Playwright locators según el perfil
             seen_urls: set = set()
             scope = page
             try:
@@ -319,7 +460,7 @@ def get_course_links_with_playwright(
                     try:
                         href = link.get_attribute("href")
                         text = (link.inner_text() or "").strip()
-                        if href and "course/view" in href and len(text) >= 1:
+                        if href and link_href_pattern in href and len(text) >= 1:
                             url = urljoin(base_url + "/", href)
                             if url not in seen_urls:
                                 seen_urls.add(url)
@@ -331,15 +472,13 @@ def get_course_links_with_playwright(
             if course_list:
                 log.info("  -> Cursos obtenidos con selectores Playwright: %d", len(course_list))
             else:
-                log.info("  -> Selectores Playwright: 0 enlaces; probando respaldo HTML (BeautifulSoup)...")
+                log.info("  -> Selectores Playwright: 0 enlaces.")
 
-            # Respaldo: extraer desde el HTML parseado (BeautifulSoup)
-            if not course_list and BS4_AVAILABLE:
-                course_list = _extract_courses_from_html(html_snapshot, base_url, debug=debug)
-                if course_list:
-                    log.info("  -> Cursos obtenidos con respaldo HTML: %d", len(course_list))
-                else:
-                    log.warning("  -> Respaldo HTML: 0 cursos. Revisar selectores o que la pagina muestre 'Mis cursos'.")
+            if presence["has_courses"] and not course_list:
+                log.warning(
+                    "  -> La pagina tiene %d tarjeta(s) de curso pero la extraccion devolvio 0. Revisar selectores del perfil.",
+                    presence["card_count"],
+                )
 
             # Fallback: descubrimiento por contenido (visitar enlaces y clasificar con LLM)
             if not course_list and course_discovery_profile and course_discovery_profile.get("fallback_when_empty"):

@@ -210,17 +210,22 @@ class UnisimonScraper:
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
                 
-                # Look for links that might lead to assignments
+                # Look for links that might lead to assignments (solo URLs fetchables)
+                base = 'https://aulapregrado.unisimon.edu.co'
                 links = soup.find_all('a', href=True)
                 for link in links:
-                    href = link.get('href')
+                    href = (link.get('href') or '').strip()
+                    if not href or href.startswith('#') or href.lower().startswith('javascript:'):
+                        continue
                     text = link.get_text().lower()
-                    
-                    if any(keyword in text for keyword in ['tarea', 'assignment', 'actividad', 'entrega', 'curso']):
-                        if href.startswith('/'):
-                            href = 'https://aulapregrado.unisimon.edu.co' + href
-                        if href not in urls_to_check:
-                            urls_to_check.append(href)
+                    if not any(keyword in text for keyword in ['tarea', 'assignment', 'actividad', 'entrega', 'curso']):
+                        continue
+                    if href.startswith('/'):
+                        href = base + href
+                    elif not href.startswith('http://') and not href.startswith('https://'):
+                        continue
+                    if href not in urls_to_check:
+                        urls_to_check.append(href)
                             
         except Exception as e:
             print_debug_info(f"Error finding additional URLs: {e}", DEBUG_MODE)
@@ -230,13 +235,17 @@ class UnisimonScraper:
     def _extract_assignments_from_url(self, url: str) -> List[Dict[str, Any]]:
         """
         Extract assignments from a specific URL.
-        
+
         Args:
             url: URL to extract assignments from
-            
+
         Returns:
             List of assignment dictionaries
         """
+        url = (url or '').strip()
+        if not url or url.startswith('#') or not (url.startswith('http://') or url.startswith('https://')):
+            print_debug_info(f"Skipping non-fetchable URL: {url!r}", DEBUG_MODE)
+            return []
         try:
             response = self.session.get(url, timeout=REQUEST_TIMEOUT)
             if response.status_code != 200:

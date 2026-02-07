@@ -130,7 +130,7 @@ def parse_date(date_string: str) -> datetime.date:
     
     return None
 
-def generate_markdown_report(assignments: List[Dict[str, Any]], days_ahead: int, days_behind: int = 0, all_assignments: List[Dict[str, Any]] = None) -> str:
+def generate_markdown_report(assignments: List[Dict[str, Any]], days_ahead: int, days_behind: int = 0, all_assignments: List[Dict[str, Any]] = None, courses_count: int = None) -> str:
     """
     Generate a markdown report from the extracted assignments.
     
@@ -139,12 +139,13 @@ def generate_markdown_report(assignments: List[Dict[str, Any]], days_ahead: int,
         days_ahead: Number of days ahead that were checked
         days_behind: Number of days behind that were checked
         all_assignments: All assignments (for recently submitted)
+        courses_count: Optional number of courses found (shown in report if provided)
         
     Returns:
         Markdown formatted report string
     """
     if not assignments and not all_assignments:
-        return generate_empty_report(days_ahead, days_behind)
+        return generate_empty_report(days_ahead, days_behind, courses_count=courses_count)
     
     # Use all_assignments if provided, otherwise use assignments
     all_assignments = all_assignments or assignments
@@ -166,6 +167,12 @@ def generate_markdown_report(assignments: List[Dict[str, Any]], days_ahead: int,
     report_lines.append(f"**Fecha de generación:** {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     report_lines.append(f"**Período consultado:** Últimos {days_behind} días y Próximos {days_ahead} días")
     report_lines.append(f"**Total de tareas encontradas:** {len(all_assignments)}")
+    if courses_count is not None:
+        report_lines.append(f"**Cursos encontrados:** {courses_count}")
+    report_lines.append("")
+    report_lines.append("## Cursos explorados")
+    report_lines.append("")
+    report_lines.append("No aplica (este flujo no obtiene listado de cursos).")
     report_lines.append("")
     report_lines.append("---")
     report_lines.append("")
@@ -240,13 +247,14 @@ def generate_markdown_report(assignments: List[Dict[str, Any]], days_ahead: int,
     
     return "\n".join(report_lines)
 
-def generate_empty_report(days_ahead: int, days_behind: int = 0) -> str:
+def generate_empty_report(days_ahead: int, days_behind: int = 0, courses_count: int = None) -> str:
     """
     Generate an empty report when no assignments are found.
     
     Args:
         days_ahead: Number of days ahead that were checked
         days_behind: Number of days behind that were checked
+        courses_count: Optional number of courses found (shown in report if provided)
         
     Returns:
         Markdown formatted empty report
@@ -257,6 +265,12 @@ def generate_empty_report(days_ahead: int, days_behind: int = 0) -> str:
     report_lines.append("")
     report_lines.append(f"**Fecha de generación:** {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     report_lines.append(f"**Período consultado:** Últimos {days_behind} días y Próximos {days_ahead} días")
+    if courses_count is not None:
+        report_lines.append(f"**Cursos encontrados:** {courses_count}")
+    report_lines.append("")
+    report_lines.append("## Cursos explorados")
+    report_lines.append("")
+    report_lines.append("No aplica (este flujo no obtiene listado de cursos).")
     report_lines.append("")
     report_lines.append("## ✅ ¡Excelente noticia!")
     report_lines.append("")

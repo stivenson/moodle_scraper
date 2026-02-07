@@ -98,9 +98,11 @@ Además de los skills de [skills.sh](https://skills.sh/) (para la IDE), este pro
 Cada skill es una carpeta bajo **`src/lms_agent_scraper/skills/`** con un archivo **`SKILL.md`** que tiene:
 
 - **Frontmatter YAML:** `name`, `description`, `version`, etc.
-- **Secciones:** `## System Message` y `## Human Message Template` (con variables como `{snippet}`, `{date_text}`, `{context}`).
+- **Secciones:** `## System Message` y `## Human Message Template` (con variables como `{snippet}`, `{date_text}`, `{context}`) para los skills de prompts. Algunos skills solo aportan **recursos** (archivos adicionales en la carpeta).
 
-Skills disponibles: `date-interpreter`, `course-extractor`, `course-page-classifier`, `selector-suggester`, `html-structure-analyzer`.
+Skills disponibles: `date-interpreter`, `course-extractor`, `course-page-classifier`, `selector-suggester`, `html-structure-analyzer`, `report-generator`.
+
+El skill **report-generator** no define prompts para el LLM; incluye el recurso **report_template.md**, que es la plantilla Markdown del reporte de tareas. El generador de reportes ([report_tools](src/lms_agent_scraper/tools/report_tools.py)) carga esa plantilla con `SkillLoader.load_skill_resource()` y la rellena con el contexto (título, fecha, tareas por sección, etc.). Si el recurso no existe, la generación del reporte falla con un error explícito.
 
 ### Cómo funciona
 

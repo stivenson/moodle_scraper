@@ -23,14 +23,40 @@ navigation:
 
 # Vista de paneles/tarjetas en /my/courses.php (Moodle 4 block_myoverview)
 # Estructura: data-region="courses-view" -> card-deck -> course-content por tarjeta
+# Selectores genéricos: card_selectors, name_selectors, link_selector, link_href_pattern,
+# fallback_containers y more_navigation son opcionales; si no se definen se usan defaults Moodle.
 courses:
   container: "[data-region='courses-view']"
+  # Selectores Playwright para enlaces a curso (orden: más específico primero)
   selectors:
-    - "[data-region='course-content'] a.aalink.coursename"
+    - "div.card.course-card a[href*='course/view.php']"
     - "[data-region='course-content'] a[href*='course/view.php']"
+    - "[data-region='course-content'] a.aalink.coursename"
     - ".course-card a[href*='course/view.php']"
     - ".card-grid a[href*='course/view.php']"
     - "a[href*='course/view.php']"
+  # Tarjetas de curso (BS4 y detect_courses_presence); por defecto Moodle
+  card_selectors:
+    - "[data-region='course-content']"
+    - "div.card.course-card"
+  # Dentro de cada tarjeta: nombre del curso
+  name_selectors:
+    - "a.coursename"
+    - "span.multiline"
+    - "[title]"
+  # Enlace al curso dentro de la tarjeta
+  link_selector: "a[href*='course/view.php']"
+  link_href_pattern: "course/view"
+  # Si no hay tarjetas, buscar enlaces en estos contenedores
+  fallback_containers:
+    - "[data-region='courses-view']"
+    - ".card-deck"
+    - ".course-box"
+  # Opcional: "Ver más" / paginación antes de extraer
+  more_navigation:
+    selectors: []  # ej.: "button:has-text('Ver más')", "a:has-text('Siguiente')"
+    expand_before_extract: false
+    max_clicks: 0
   extract:
     name: "text"
     url: "href"

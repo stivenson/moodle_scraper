@@ -149,12 +149,15 @@ def report_generator_node(state: ScraperState) -> Dict[str, Any]:
     title = title_tpl.format(portal_name=state.get("base_url", "").replace("https://", "").split("/")[0] or "LMS")
 
     try:
+        courses = state.get("courses", [])
         content = generate_markdown_report(
             assignments,
             days_ahead=days_ahead,
             days_behind=days_behind,
             all_assignments=assignments,
             title=title,
+            courses_count=len(courses),
+            courses=courses,
         )
         report_path = save_report(content, output_dir=output_dir)
         updates["report_path"] = report_path

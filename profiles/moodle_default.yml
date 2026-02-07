@@ -22,13 +22,32 @@ navigation:
   courses_page: "/my/courses.php"
   dashboard: "/my/"
 
+# Moodle 4 block_myoverview: tarjetas con data-region='course-content' o .course-card
 courses:
   container: "[data-region='courses-view']"
   selectors:
+    - "div.card.course-card a[href*='course/view.php']"
+    - "[data-region='course-content'] a[href*='course/view.php']"
+    - "[data-region='course-content'] a.aalink.coursename"
+    - ".course-card a[href*='course/view.php']"
+    - ".card-grid a[href*='course/view.php']"
     - "a[href*='course/view.php']"
     - ".course-title a"
     - ".course-name a"
     - ".coursebox a"
+  card_selectors:
+    - "[data-region='course-content']"
+    - "div.card.course-card"
+  name_selectors:
+    - "a.coursename"
+    - "span.multiline"
+    - "[title]"
+  link_selector: "a[href*='course/view.php']"
+  link_href_pattern: "course/view"
+  fallback_containers:
+    - "[data-region='courses-view']"
+    - ".card-deck"
+    - ".course-box"
   extract:
     name: "text"
     url: "href"

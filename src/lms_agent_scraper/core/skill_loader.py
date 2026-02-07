@@ -35,6 +35,7 @@ class SkillLoader:
 
         self.skills_dir = Path(skills_dir)
         self._cache: Dict[str, Dict] = {}
+        self._resource_cache: Dict[Tuple[str, str], str] = {}
 
         if not self.skills_dir.exists():
             logger.warning("Directorio de skills no encontrado: %s", self.skills_dir)
@@ -141,6 +142,31 @@ class SkillLoader:
         skill_data = self._parse_skill_file(skill_path)
         return skill_data["metadata"]
 
+    def load_skill_resource(
+        self, skill_name: str, resource_name: str, use_cache: bool = True
+    ) -> Optional[str]:
+        """
+        Carga un recurso (archivo) desde la carpeta de un skill.
+
+        Args:
+            skill_name: Nombre del skill (ej: "report-generator").
+            resource_name: Nombre del archivo recurso (ej: "report_template.md").
+            use_cache: Si usar caché de recursos cargados.
+
+        Returns:
+            Contenido del archivo en UTF-8, o None si no existe.
+        """
+        cache_key = (skill_name, resource_name)
+        if use_cache and cache_key in self._resource_cache:
+            return self._resource_cache[cache_key]
+        resource_path = self.skills_dir / skill_name / resource_name
+        if not resource_path.exists() or not resource_path.is_file():
+            return None
+        content = resource_path.read_text(encoding="utf-8")
+        if use_cache:
+            self._resource_cache[cache_key] = content
+        return content
+
     def list_available_skills(self) -> List[Dict]:
         """Lista todos los skills disponibles en el directorio."""
         skills = []
@@ -167,10 +193,16 @@ class SkillLoader:
         """
         Valida que un skill esté correctamente formateado.
 
+        Para el skill report-generator (solo recurso) comprueba que exista
+        report_template.md y placeholders mínimos; no exige System/Human Message.
+
         Returns:
             Tupla (es_válido, mensaje_error).
         """
         try:
+            if skill_name == "report-generator":
+                return self._validate_report_generator_skill()
+
             skill_path = self.skills_dir / skill_name / "SKILL.md"
             if not skill_path.exists():
                 return False, f"Archivo no encontrado: {skill_path}"
@@ -185,7 +217,28 @@ class SkillLoader:
         except Exception as e:
             return False, str(e)
 
+    def _validate_report_generator_skill(self) -> Tuple[bool, Optional[str]]:
+        """Valida el skill report-generator (recurso report_template.md)."""
+        skill_dir = self.skills_dir / "report-generator"
+        skill_path = skill_dir / "SKILL.md"
+        template_path = skill_dir / "report_template.md"
+        if not skill_path.exists():
+            return False, f"Archivo no encontrado: {skill_path}"
+        if not template_path.exists() or not template_path.is_file():
+            return False, f"Recurso no encontrado: {template_path}"
+        try:
+            self._parse_skill_file(skill_path)  # metadata name/description
+        except Exception as e:
+            return False, str(e)
+        template_content = template_path.read_text(encoding="utf-8")
+        required_placeholders = ["{title}", "{generation_date}", "{total_tasks}"]
+        for placeholder in required_placeholders:
+            if placeholder not in template_content:
+                return False, f"Falta placeholder {placeholder} en report_template.md"
+        return True, None
+
     def clear_cache(self) -> None:
-        """Limpia el caché de skills."""
+        """Limpia el caché de skills y de recursos."""
         self._cache.clear()
+        self._resource_cache.clear()
         logger.debug("Caché de skills limpiado")
