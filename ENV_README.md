@@ -7,6 +7,7 @@ unisimon_scraper/
 ├── venv/                          # Entorno virtual de Python
 ├── activate_env.bat               # Script de activación (Windows)
 ├── .env.example                   # Plantilla de variables (v2)
+├── validate_skills.py             # Valida prompts LLM (SKILL.md)
 ├── scraper.py                     # Scraper básico (legacy)
 ├── scraper_hybrid.py              # Scraper híbrido (legacy)
 ├── scraper_selenium.py            # Scraper con Selenium (legacy)
@@ -16,6 +17,9 @@ unisimon_scraper/
 ├── pyproject.toml                 # Paquete v2 (pip install -e .)
 ├── profiles/                      # Perfiles YAML por portal (v2)
 ├── src/lms_agent_scraper/        # LMS Agent Scraper v2 (CLI, MCP, workflow)
+│   ├── core/                      # profile_loader, skill_loader
+│   ├── skills/                    # Prompts LLM en SKILL.md (runtime)
+│   └── ...
 ├── docs/
 ├── tests/
 ├── reports/                       # Reportes generados
@@ -86,6 +90,9 @@ python scraper.py
 
 # Scraper con Selenium completo
 python scraper_selenium.py
+
+# Validar skills (prompts LLM en SKILL.md)
+python validate_skills.py
 ```
 
 ## 🐛 Solución de Problemas

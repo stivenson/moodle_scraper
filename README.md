@@ -288,6 +288,8 @@ npx skills add obra/superpowers --yes
 
 Ver `docs/AGENT_SKILLS.md` para todos los comandos y `npx skills list` para listar los instalados.
 
+**Skills en tiempo de ejecución (prompts del LLM):** Los prompts que usa Ollama están en `src/lms_agent_scraper/skills/` (archivos SKILL.md por tarea: extracción de cursos, fechas, selectores, etc.). Puedes editarlos sin tocar código. Para validar que carguen bien: `python validate_skills.py`. Detalle en `docs/AGENT_SKILLS.md` (sección "Skills en tiempo de ejecución").
+
 ---
 
 ## 📄 Licencia
