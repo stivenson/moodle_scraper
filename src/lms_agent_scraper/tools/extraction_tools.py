@@ -124,6 +124,38 @@ def extract_assignments_from_html(
     return assignments
 
 
+def extract_assignments_from_html_with_llm(
+    html: str,
+    course_name: str,
+    course_url: str,
+    profile: Dict[str, Any],
+    base_url: str = "",
+    section_name: str = "Main",
+) -> List[Dict[str, Any]]:
+    """
+    Extrae tareas intentando primero con el LLM; si no está disponible o devuelve vacío, usa selectores del perfil.
+    """
+    try:
+        from lms_agent_scraper.llm.ollama_client import LocalLLMClient
+        client = LocalLLMClient()
+        if client.available:
+            items = client.extract_assignments_from_course_html(
+                html, course_name=course_name, base_url=base_url
+            )
+            if items:
+                return items
+    except Exception as e:
+        log.debug("LLM extraction fallback a selectores: %s", e)
+    return extract_assignments_from_html(
+        html,
+        course_name=course_name,
+        course_url=course_url,
+        profile=profile,
+        section_name=section_name,
+        base_url=base_url,
+    )
+
+
 def get_assignments_for_courses(
     courses: List[Dict[str, str]],
     cookies: List[Dict[str, Any]],
@@ -131,9 +163,11 @@ def get_assignments_for_courses(
     base_url: str,
     max_courses: int = 0,
     timeout: int = 30,
+    use_llm_first: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Por cada curso, obtiene la página y extrae assignments.
+    Si use_llm_first es True, intenta extracción con LLM por curso; si falla o está vacío, usa selectores.
     Retorna la lista agregada de assignments.
     """
     if not courses:
@@ -152,14 +186,24 @@ def get_assignments_for_courses(
         try:
             resp = session.get(course_url, timeout=timeout)
             resp.raise_for_status()
-            items = extract_assignments_from_html(
-                resp.text,
-                course_name=course_name,
-                course_url=course_url,
-                profile=profile,
-                section_name="Main",
-                base_url=base_url,
-            )
+            if use_llm_first:
+                items = extract_assignments_from_html_with_llm(
+                    resp.text,
+                    course_name=course_name,
+                    course_url=course_url,
+                    profile=profile,
+                    base_url=base_url,
+                    section_name="Main",
+                )
+            else:
+                items = extract_assignments_from_html(
+                    resp.text,
+                    course_name=course_name,
+                    course_url=course_url,
+                    profile=profile,
+                    section_name="Main",
+                    base_url=base_url,
+                )
             all_assignments.extend(items)
         except Exception:
             continue

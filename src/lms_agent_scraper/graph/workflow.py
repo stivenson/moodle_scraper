@@ -5,9 +5,25 @@ Flujo: Start -> Auth -> CourseDiscovery -> AssignmentExtractor -> DataProcessor 
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 from lms_agent_scraper.graph.state import ScraperState
 from lms_agent_scraper.graph import nodes
+
+
+def _normalize_base_url(url: str) -> str:
+    """
+    Normaliza la URL del portal al origen (scheme + netloc).
+    Si el usuario pasa la URL completa del login (ej. .../login/index.php), se usa solo el origen
+    para construir correctamente /my/courses.php y demás rutas.
+    """
+    if not url:
+        return url
+    parsed = urlparse(url.rstrip("/"))
+    if not parsed.netloc:
+        return url
+    scheme = parsed.scheme or "https"
+    return f"{scheme}://{parsed.netloc}"
 
 log = logging.getLogger(__name__)
 
@@ -71,7 +87,7 @@ def run_workflow(
 
     initial: ScraperState = {
         "profile_name": profile_name,
-        "base_url": base_url.rstrip("/"),
+        "base_url": _normalize_base_url(base_url),
         "username": username,
         "password": password,
         "profile": profile_dict,

@@ -42,6 +42,29 @@ def filter_by_date(
     return filtered
 
 
+def count_tasks_in_period(
+    assignments: List[Dict[str, Any]],
+    days_ahead: int,
+    days_behind: int,
+) -> int:
+    """
+    Devuelve el número de tareas en el período del reporte (mismo criterio que "Total tareas").
+    Incluye atrasadas, vencen hoy, próximas y entregadas recientemente (últimos 7 días).
+    """
+    if not assignments:
+        return 0
+    filtered = filter_by_date(assignments, days_ahead, days_behind)
+    overdue = [a for a in filtered if a.get("status") == "OVERDUE"]
+    due_today = [a for a in filtered if a.get("status") == "DUE_TODAY"]
+    upcoming = [a for a in filtered if a.get("status") == "UPCOMING"]
+    recently_submitted = [
+        a for a in assignments
+        if (a.get("submission_status") or {}).get("submitted")
+        and ((a.get("submission_status") or {}).get("days_ago") or 999) <= 7
+    ]
+    return len(overdue) + len(due_today) + len(upcoming) + len(recently_submitted)
+
+
 def render_report_from_template(template_str: str, context: Dict[str, Any]) -> str:
     """
     Rellena la plantilla del reporte con el contexto usando str.format().
@@ -156,11 +179,14 @@ def generate_markdown_report(
     )
     footer = "*Reporte generado por LMS Agent Scraper*"
 
+    tasks_in_period = (
+        len(overdue) + len(due_today) + len(upcoming) + len(recently_submitted)
+    )
     context = {
         "title": title,
         "generation_date": generation_date,
         "period": period,
-        "total_tasks": len(all_assignments),
+        "total_tasks": tasks_in_period,
         "courses_count_line": courses_count_line,
         "courses_explored_section": courses_explored_section,
         "section_recently_submitted": _build_section_recently_submitted(recently_submitted),

@@ -34,6 +34,22 @@ def test_generate_markdown_report_empty():
     content = generate_markdown_report([], 7, 7, title="Test")
     assert "Reporte" in content or "Test" in content
     assert "generación" in content.lower() or "generado" in content.lower()
+    assert "**Total tareas:** 0" in content
+    assert "Sin tareas pendientes" in content
+
+
+def test_generate_markdown_report_assignments_outside_period():
+    """Con tareas fuera del período, el reporte debe mostrar Total tareas: 0 y mensaje sin tareas."""
+    today = datetime.now().date()
+    far_future = (today + timedelta(days=100)).strftime("%Y-%m-%d")
+    assignments = [
+        {"due_date": far_future, "title": "Tarea lejana", "course": "C1"},
+    ]
+    content = generate_markdown_report(
+        assignments, days_ahead=21, days_behind=7, title="Test"
+    )
+    assert "**Total tareas:** 0" in content
+    assert "Sin tareas pendientes" in content
 
 
 def test_save_report(tmp_path):

@@ -107,6 +107,10 @@ def assignment_extractor_node(state: ScraperState) -> Dict[str, Any]:
     cookies = state.get("session_cookies", [])
     base_url = state.get("base_url", "")
     max_courses = state.get("max_courses", 0)
+    use_llm_first = state.get(
+        "use_llm_for_assignments",
+        profile.get("assignments", {}).get("use_llm_first", False),
+    )
 
     try:
         assignments = get_assignments_for_courses(
@@ -115,6 +119,7 @@ def assignment_extractor_node(state: ScraperState) -> Dict[str, Any]:
             profile=profile,
             base_url=base_url,
             max_courses=max_courses,
+            use_llm_first=use_llm_first,
         )
         updates["assignments"] = assignments
         log.info("[3/5] Extraccion de tareas: listo - %d tarea(s) extraida(s).", len(assignments))

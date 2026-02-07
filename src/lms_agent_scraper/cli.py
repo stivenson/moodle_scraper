@@ -62,7 +62,13 @@ def run(
     if result.get("errors"):
         for e in result["errors"]:
             typer.echo(f"  [error] {e}", err=True)
-    typer.echo(f"Cursos: {len(result.get('courses', []))} | Tareas: {len(result.get('assignments', []))}")
+    from lms_agent_scraper.tools.report_tools import count_tasks_in_period
+    tasks_in_period = count_tasks_in_period(
+        result.get("assignments", []),
+        result.get("days_ahead", 7),
+        result.get("days_behind", 7),
+    )
+    typer.echo(f"Cursos: {len(result.get('courses', []))} | Tareas: {tasks_in_period}")
     if result.get("report_path"):
         typer.echo(f"Reporte guardado: {result['report_path']}")
     if not result.get("authenticated"):

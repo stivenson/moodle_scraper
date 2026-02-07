@@ -76,6 +76,7 @@ course_discovery:
     - "/course/"
 
 assignments:
+  use_llm_first: true
   types:
     - name: "assignment"
       selectors:

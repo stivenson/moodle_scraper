@@ -21,7 +21,7 @@ El archivo **report_template.md** en esta carpeta usa placeholders en formato `{
 - **title**: Título del reporte (ej. desde perfil `reports.title_template`).
 - **generation_date**: Fecha/hora de generación.
 - **period**: Texto del período consultado (últimos N días y próximos N días).
-- **total_tasks**: Número total de tareas.
+- **total_tasks**: Número de tareas en el período del reporte (atrasadas + vencen hoy + próximas + entregadas recientemente).
 - **courses_count_line**: Línea opcional "**Cursos encontrados:** N" o cadena vacía.
 - **courses_explored_section**: Sección "## Cursos explorados" con lista en Markdown de nombres de cursos (puede ser vacía).
 - **section_recently_submitted**: Bloque Markdown de tareas entregadas recientemente (puede ser vacío).

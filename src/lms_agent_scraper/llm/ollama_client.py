@@ -294,3 +294,88 @@ HTML:
         is_course = bool(data.get("is_course", False))
         course_name = (data.get("course_name") or "").strip()
         return {"is_course": is_course, "course_name": course_name}
+
+    def extract_assignments_from_course_html(
+        self,
+        html: str,
+        course_name: str,
+        base_url: str,
+        max_chars: int = 18000,
+    ) -> List[Dict[str, Any]]:
+        """
+        Usa el LLM para extraer tareas/entregas desde el HTML de la página de un curso (Moodle).
+        Retorna lista de dicts en formato estándar del pipeline: title, due_date, course, type,
+        url, section, submission_status, attached_files.
+        """
+        if not self.available or not html:
+            return []
+        base_url = base_url.rstrip("/")
+        snippet = re.sub(r"<script[^>]*>[\s\S]*?</script>", "", html, flags=re.IGNORECASE)
+        snippet = re.sub(r"<style[^>]*>[\s\S]*?</style>", "", snippet, flags=re.IGNORECASE)
+        snippet = snippet[:max_chars] if len(snippet) > max_chars else snippet
+        prompt = self._prompt_from_skill(
+            "assignment-extractor",
+            snippet=snippet,
+            course_name=course_name or "Curso",
+            base_url=base_url,
+        )
+        if prompt is None:
+            prompt = f"""El siguiente HTML es la página principal de un curso en un LMS tipo Moodle (Aula Pregrado).
+Curso: {course_name or "Curso"}
+Base URL del sitio: {base_url}
+
+Tu tarea: identificar TODAS las tareas, entregas, actividades evaluables (tareas, entregas, cuestionarios, foros de entrega, talleres, etc.), aunque la redacción sea diversa. Para cada una extrae:
+1) title: título tal como aparece.
+2) due_date: fecha de entrega o vencimiento si está visible (texto o formato coherente); si no hay, cadena vacía "".
+3) url: URL del enlace a la actividad (absoluta o relativa al sitio). Debe contener mod/assign, mod/quiz, mod/forum o mod/workshop.
+4) type: uno de assignment, quiz, forum, workshop.
+
+Responde ÚNICAMENTE con un JSON válido: un array de objetos con exactamente las claves "title", "due_date", "url", "type".
+Ejemplo: [{{"title": "Tarea 1", "due_date": "15/03/2026", "url": "/mod/assign/view.php?id=123", "type": "assignment"}}]
+No incluyas explicaciones ni markdown. Solo el array JSON.
+
+HTML:
+{snippet}
+"""
+        out = self._invoke(prompt)
+        if not out:
+            return []
+        out = re.sub(r"^```\w*\n?", "", out)
+        out = re.sub(r"\n?```\s*$", "", out)
+        out = out.strip()
+        try:
+            raw = json.loads(out)
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(raw, list):
+            return []
+        result: List[Dict[str, Any]] = []
+        seen_urls: set = set()
+        valid_types = {"assignment", "quiz", "forum", "workshop"}
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            title = (item.get("title") or "").strip()
+            if not title:
+                continue
+            url = (item.get("url") or "").strip()
+            if not url or ("mod/" not in url and "assign" not in url and "quiz" not in url and "forum" not in url and "workshop" not in url):
+                continue
+            url = urljoin(base_url + "/", url)
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+            raw_type = (item.get("type") or "assignment").strip().lower()
+            activity_type = raw_type if raw_type in valid_types else "assignment"
+            due_date_str = (item.get("due_date") or "").strip()
+            result.append({
+                "title": title,
+                "due_date": due_date_str,
+                "course": course_name or "Sin nombre",
+                "type": activity_type,
+                "url": url,
+                "section": "Main",
+                "submission_status": {"submitted": False, "status_text": "No entregada"},
+                "attached_files": [],
+            })
+        return result
