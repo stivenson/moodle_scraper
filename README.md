@@ -36,9 +36,11 @@ unisimon_scraper/
 │   ├── graph/              # Workflow LangGraph (nodes, workflow, state)
 │   ├── llm/                # Cliente Ollama (extracción y clasificación)
 │   ├── tools/              # browser_tools, extraction_tools, report_tools
-│   ├── core/               # date_parser, profile_loader
+│   ├── core/               # date_parser, profile_loader, skill_loader
+│   ├── skills/             # Prompts LLM en SKILL.md (date-interpreter, course-extractor, etc.)
 │   └── mcp/                # Servidor MCP
-├── .agents/skills/         # Skills de skills.sh (agent-browser, pdf, webapp-testing, etc.)
+├── validate_skills.py      # Valida que los skills (SKILL.md) carguen correctamente
+├── .agents/skills/        # Skills de skills.sh (agent-browser, pdf, webapp-testing, etc.)
 ├── docs/
 │   ├── AGENT_SKILLS.md
 │   ├── ARCHITECTURE_VERIFICATION.md

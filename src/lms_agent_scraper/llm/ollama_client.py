@@ -1,10 +1,12 @@
 """
 Cliente Ollama para GLM-4.7-Flash: análisis de HTML, interpretación de fechas, sugerencia de selectores,
 extracción de cursos desde la página "Mis cursos" (fallback con LLM).
+Soporta prompts desde SKILL.md (skills_dir) con fallback a prompts hardcodeados.
 """
 import json
 import logging
 import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
@@ -22,11 +24,22 @@ except ImportError:
     HumanMessage = None
 
 
+def _default_skills_dir() -> Path:
+    """Directorio por defecto de skills (package_root/skills)."""
+    return Path(__file__).resolve().parent.parent / "skills"
+
+
 class LocalLLMClient:
     """Cliente para inferencia local con GLM-4.7-Flash vía Ollama."""
 
-    def __init__(self, settings: Optional[OllamaSettings] = None):
+    def __init__(
+        self,
+        settings: Optional[OllamaSettings] = None,
+        skills_dir: Optional[Path] = None,
+    ):
         self.settings = settings or OllamaSettings()
+        self._skills_dir = Path(skills_dir) if skills_dir is not None else _default_skills_dir()
+        self._skill_loader = None
         self._llm = None
         if OLLAMA_AVAILABLE:
             try:
@@ -55,6 +68,34 @@ class LocalLLMClient:
         except Exception:
             return ""
 
+    def _get_skill_loader(self):
+        """Lazy init del SkillLoader si skills_dir existe."""
+        if self._skill_loader is not None:
+            return self._skill_loader
+        if not self._skills_dir.exists():
+            return None
+        try:
+            from lms_agent_scraper.core.skill_loader import SkillLoader
+            self._skill_loader = SkillLoader(self._skills_dir)
+            return self._skill_loader
+        except Exception as e:
+            logger.debug("SkillLoader no disponible: %s", e)
+            return None
+
+    def _prompt_from_skill(self, skill_name: str, **kwargs: Any) -> Optional[str]:
+        """Construye el prompt desde un skill (SKILL.md). Retorna None si falla."""
+        loader = self._get_skill_loader()
+        if loader is None:
+            return None
+        try:
+            template = loader.load_skill(skill_name)
+            messages = template.format_messages(**kwargs)
+            parts = [getattr(m, "content", str(m)) for m in messages]
+            return "\n\n".join(p for p in parts if p)
+        except Exception as e:
+            logger.debug("Prompt desde skill %s no disponible: %s", skill_name, e)
+            return None
+
     def analyze_html_structure(self, html: str, max_chars: int = 4000) -> Dict[str, str]:
         """
         Analiza un fragmento HTML y sugiere selectores CSS para tareas/assignments (estilo Moodle).
@@ -63,7 +104,9 @@ class LocalLLMClient:
         if not self.available:
             return {}
         snippet = html[:max_chars] if html else ""
-        prompt = f"""Analiza el siguiente HTML y propón selectores CSS para:
+        prompt = self._prompt_from_skill("html-structure-analyzer", snippet=snippet)
+        if prompt is None:
+            prompt = f"""Analiza el siguiente HTML y propón selectores CSS para:
 1) Enlaces a tareas/assignments (assignment_selector)
 2) Elementos que muestran fecha de entrega (date_selector)
 
@@ -90,7 +133,13 @@ HTML:
         """
         if not self.available or not date_text:
             return ""
-        prompt = f"""Fecha encontrada: "{date_text}"
+        prompt = self._prompt_from_skill(
+            "date-interpreter",
+            date_text=date_text,
+            context=context[:500] if context else "N/A",
+        )
+        if prompt is None:
+            prompt = f"""Fecha encontrada: "{date_text}"
 Contexto: {context[:500] if context else 'N/A'}
 
 Convierte a formato ISO (YYYY-MM-DD). Responde SOLO con la fecha en formato ISO, nada más."""
@@ -108,7 +157,13 @@ Convierte a formato ISO (YYYY-MM-DD). Responde SOLO con la fecha en formato ISO,
         """
         if not self.available:
             return {}
-        prompt = f"""Error durante el scraping: {error_message}
+        prompt = self._prompt_from_skill(
+            "selector-suggester",
+            error_message=error_message,
+            html_snippet=html_snippet[:3000] if html_snippet else "",
+        )
+        if prompt is None:
+            prompt = f"""Error durante el scraping: {error_message}
 {f'Fragmento HTML: {html_snippet[:3000]}' if html_snippet else ''}
 
 Sugiere selectores CSS alternativos para encontrar enlaces a tareas/assignments en un LMS tipo Moodle.
@@ -138,7 +193,13 @@ Responde ÚNICAMENTE con JSON: {{"assignment_selector": "...", "date_selector": 
         snippet = re.sub(r"<script[^>]*>[\s\S]*?</script>", "", html, flags=re.IGNORECASE)
         snippet = re.sub(r"<style[^>]*>[\s\S]*?</style>", "", snippet, flags=re.IGNORECASE)
         snippet = snippet[:max_chars] if len(snippet) > max_chars else snippet
-        prompt = f"""El siguiente HTML corresponde a la página "Mis cursos" de un campus Moodle (Aula Pregrado).
+        prompt = self._prompt_from_skill(
+            "course-extractor",
+            snippet=snippet,
+            base_url=base_url,
+        )
+        if prompt is None:
+            prompt = f"""El siguiente HTML corresponde a la página "Mis cursos" de un campus Moodle (Aula Pregrado).
 Tu tarea: extraer TODOS los cursos listados. Para cada curso necesito:
 1) El nombre completo del curso (tal como aparece en pantalla).
 2) La URL del curso. Debe contener "course/view.php" y el parámetro "id" (ej: course/view.php?id=3418).
@@ -193,8 +254,14 @@ HTML:
         snippet = re.sub(r"<script[^>]*>[\s\S]*?</script>", "", html, flags=re.IGNORECASE)
         snippet = re.sub(r"<style[^>]*>[\s\S]*?</style>", "", snippet, flags=re.IGNORECASE)
         snippet = snippet[:max_chars] if len(snippet) > max_chars else snippet
-        url_hint = f"\nURL de la página: {url}" if url else ""
-        prompt = f"""El siguiente HTML es de un sitio LMS tipo Moodle (ej. Aula Pregrado).
+        prompt = self._prompt_from_skill(
+            "course-page-classifier",
+            snippet=snippet,
+            url=url or "",
+        )
+        if prompt is None:
+            url_hint = f"\nURL de la página: {url}" if url else ""
+            prompt = f"""El siguiente HTML es de un sitio LMS tipo Moodle (ej. Aula Pregrado).
 Determina si esta página es una PÁGINA DE CURSO (vista principal de un curso), no una lista de cursos ni el dashboard.
 
 Señales de página de curso:

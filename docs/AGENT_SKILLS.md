@@ -81,3 +81,43 @@ npx skills list
 ```
 
 Estos skills mejoran la capacidad del agente para depurar el scraper, generar reportes en PDF, probar flujos en el portal y mantener tests y el servidor MCP.
+
+---
+
+## Skills en tiempo de ejecución (prompts en SKILL.md)
+
+Además de los skills de [skills.sh](https://skills.sh/) (para la IDE), este proyecto usa **skills en tiempo de ejecución**: los prompts que recibe el LLM (Ollama) están externalizados en archivos **SKILL.md** dentro del paquete. Así se pueden editar y versionar sin tocar código.
+
+### Diferencia con skills.sh
+
+- **skills.sh** (carpeta `.agents/skills/`): los usa **Cursor** (u otro agente de la IDE) cuando trabajas en el repo; no los ejecuta el código del scraper.
+- **Skills en tiempo de ejecución** (`src/lms_agent_scraper/skills/`): los lee el **SkillLoader** y los usa **LocalLLMClient** al llamar a Ollama (extracción de cursos, clasificación de página, fechas, selectores). Son los prompts que recibe el modelo cuando corres el workflow.
+
+### Dónde están
+
+Cada skill es una carpeta bajo **`src/lms_agent_scraper/skills/`** con un archivo **`SKILL.md`** que tiene:
+
+- **Frontmatter YAML:** `name`, `description`, `version`, etc.
+- **Secciones:** `## System Message` y `## Human Message Template` (con variables como `{snippet}`, `{date_text}`, `{context}`).
+
+Skills disponibles: `date-interpreter`, `course-extractor`, `course-page-classifier`, `selector-suggester`, `html-structure-analyzer`.
+
+### Cómo funciona
+
+El **SkillLoader** ([core/skill_loader.py](src/lms_agent_scraper/core/skill_loader.py)) lee el SKILL.md, parsea YAML y secciones, y construye un `ChatPromptTemplate` (LangChain). **LocalLLMClient** intenta cargar el skill correspondiente a cada tarea (p. ej. `date-interpreter` para interpretar fechas); si el skill existe y carga bien, usa ese prompt; si no, usa el prompt hardcodeado (retrocompatibilidad).
+
+### Cómo añadir o editar un skill
+
+1. Crea o edita la carpeta `src/lms_agent_scraper/skills/<nombre-skill>/SKILL.md`.
+2. Usa el formato: frontmatter `---` YAML `---` y secciones `## System Message` y `## Human Message Template` con las variables que necesites (p. ej. `{snippet}`, `{date_text}`).
+3. Valida con: `python validate_skills.py` desde la raíz del repo.
+
+### Validar skills
+
+Desde la raíz del proyecto (con el paquete instalable en el path, p. ej. `pip install -e .` o `PYTHONPATH=src`):
+
+```bash
+python validate_skills.py
+```
+
+Comprueba que cada skill exista, tenga el formato correcto y las variables esperadas en el Human Message Template.
