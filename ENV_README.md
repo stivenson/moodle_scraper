@@ -1,29 +1,36 @@
 # 🐍 Entorno Virtual - Unisimon Scraper
 
+**Requisito:** Python **3.10+**.
+
 ## 📁 Estructura del Proyecto
 
 ```
 unisimon_scraper/
-├── venv/                          # Entorno virtual de Python
+├── venv/                          # Entorno virtual (crear con: python -m venv venv)
 ├── activate_env.bat               # Script de activación (Windows)
-├── .env.example                   # Plantilla de variables (v2)
+├── .env.example                   # Plantilla de variables para v2 (copiar a .env)
 ├── validate_skills.py             # Valida prompts LLM (SKILL.md)
 ├── scraper.py                     # Scraper básico (legacy)
 ├── scraper_hybrid.py              # Scraper híbrido (legacy)
 ├── scraper_selenium.py            # Scraper con Selenium (legacy)
-├── config.py                      # Configuración legacy
+├── config.py                      # Configuración legacy (placeholders; no versionar credenciales)
 ├── utils.py                       # Utilidades legacy
-├── requirements.txt
-├── pyproject.toml                 # Paquete v2 (pip install -e .)
+├── requirements.txt               # Dependencias legacy
+├── pyproject.toml                 # Paquete v2: pip install -e .
 ├── profiles/                      # Perfiles YAML por portal (v2)
-├── src/lms_agent_scraper/        # LMS Agent Scraper v2 (CLI, MCP, workflow)
-│   ├── core/                      # profile_loader, skill_loader
+├── src/lms_agent_scraper/         # LMS Agent Scraper v2 (CLI, MCP, workflow LangGraph)
+│   ├── cli.py                     # Comandos: run, profiles list/validate
+│   ├── agents/                    # login, course_discovery, analyzer
+│   ├── graph/                     # Workflow LangGraph (nodes, state)
+│   ├── llm/                       # Cliente Ollama
+│   ├── tools/                     # browser_tools, extraction_tools, report_tools
+│   ├── core/                      # profile_loader, skill_loader, date_parser
 │   ├── skills/                    # Prompts LLM en SKILL.md (runtime)
-│   └── ...
+│   └── mcp/                       # Servidor MCP
 ├── docs/
 ├── tests/
 ├── reports/                       # Reportes generados
-└── debug_html/                    # HTML de debug
+└── debug_html/                    # HTML de debug (cuando SCRAPER_DEBUG_MODE=true)
 ```
 
 ## 🚀 Cómo usar el entorno virtual
@@ -46,17 +53,23 @@ python scraper_hybrid.py
 deactivate
 ```
 
-## 📦 Dependencias Instaladas
+## 📦 Dependencias
 
-El entorno virtual incluye todas las dependencias necesarias:
+### Legacy (requirements.txt)
 
-- **requests>=2.31.0** - Para peticiones HTTP
-- **beautifulsoup4>=4.12.0** - Para parsing HTML
-- **lxml>=4.9.0** - Parser XML/HTML rápido
-- **selenium>=4.15.0** - Para automatización web
-- **webdriver-manager>=4.0.0** - Gestión automática de drivers
-- **spacy>=3.7.0** - Procesamiento de lenguaje natural
-- **es_core_news_sm** - Modelo de español para spaCy
+- **requests**, **beautifulsoup4**, **lxml** - HTTP y parsing HTML
+- **selenium**, **webdriver-manager** - Automatización web (scraper_selenium, scraper_hybrid)
+- **spacy** - Procesamiento de lenguaje natural (opcional)
+
+### v2 – LMS Agent Scraper (pyproject.toml)
+
+Instalación: `pip install -e .` (desde la raíz del repo). Incluye LangGraph, LangChain, Playwright, langchain-ollama, pydantic-settings, Typer, MCP, etc. Ver [pyproject.toml](pyproject.toml).
+
+Para v2 además necesitas **Playwright** con Chromium:
+
+```bash
+playwright install chromium
+```
 
 ## 🔧 Comandos Útiles
 
@@ -81,8 +94,31 @@ pip freeze > requirements.txt
 
 Una vez activado el entorno virtual:
 
+### v2 – LMS Agent Scraper (recomendado)
+
 ```bash
-# Scraper híbrido (recomendado)
+# 1. Instalar el paquete en modo editable (solo la primera vez)
+pip install -e .
+
+# 2. Instalar navegador para Playwright (solo la primera vez)
+playwright install chromium
+
+# 3. Configurar .env (copiar desde .env.example: PORTAL_PROFILE, PORTAL_BASE_URL, PORTAL_USERNAME, PORTAL_PASSWORD)
+
+# 4. Ejecutar
+python -m lms_agent_scraper.cli run
+# Con perfil explícito (ej. Unisimon Aula Pregrado):
+python -m lms_agent_scraper.cli run --profile moodle_unisimon
+
+# Listar/validar perfiles
+python -m lms_agent_scraper.cli profiles list
+python -m lms_agent_scraper.cli profiles validate moodle_unisimon
+```
+
+### Legacy
+
+```bash
+# Scraper híbrido
 python scraper_hybrid.py
 
 # Scraper básico con BeautifulSoup
@@ -90,7 +126,11 @@ python scraper.py
 
 # Scraper con Selenium completo
 python scraper_selenium.py
+```
 
+### Otros
+
+```bash
 # Validar skills (prompts LLM en SKILL.md)
 python validate_skills.py
 ```
@@ -106,17 +146,18 @@ python validate_skills.py
 - Reinstala las dependencias: `pip install -r requirements.txt`
 
 ### Error de login en el scraper
-- Verifica las credenciales en `config.py`
-- Asegúrate de tener conexión a internet
-- El portal puede estar temporalmente fuera de servicio
+- **Legacy:** credenciales en `config.py` (usa placeholders; no versionar las reales).
+- **v2:** configura `PORTAL_USERNAME` y `PORTAL_PASSWORD` en `.env` (copiar desde `.env.example`).
+- Asegúrate de tener conexión a internet; el portal puede estar temporalmente fuera de servicio.
 
 ## 📝 Notas Importantes
 
-- **Siempre activa el entorno virtual** antes de ejecutar el scraper
-- Los reportes se guardan en la carpeta `reports/`
-- Los archivos de debug se guardan en `debug_html/`
-- El entorno virtual está aislado del sistema Python global
+- **Python 3.10+** requerido (v2 y recomendado para legacy).
+- **Siempre activa el entorno virtual** antes de ejecutar el scraper.
+- **v2:** las credenciales y la URL del portal van en `.env` (no versionado); ver `.env.example`.
+- Los reportes se guardan en `reports/`; los archivos de debug (v2) en `debug_html/` cuando `SCRAPER_DEBUG_MODE=true`.
+- El entorno virtual está aislado del sistema Python global.
 
 ---
 
-*Entorno virtual creado para el proyecto Unisimon Portal Scraper*
+*Entorno virtual para el proyecto Unisimon Portal Scraper / LMS Agent Scraper*

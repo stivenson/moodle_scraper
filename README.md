@@ -18,6 +18,95 @@
 
 **🆕 Versión 2 (LMS Agent Scraper):** Framework generalizado con LangGraph, perfiles YAML, MCP y soporte para múltiples portales LMS. Ver sección **"LMS Agent Scraper (v2)"** más abajo.
 
+### 📍 Flujo del scraper (mapa)
+
+El siguiente diagrama ilustra la interacción entre usuario, agentes y portal (flujo legacy de alto nivel; en v2 la orquestación es LangGraph: auth → discovery → extracción → reporte).
+
+```mermaid
+graph TD
+    classDef user fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef agent fill:#fff9c4,stroke:#fbc02d,stroke-width:2px;
+    classDef system fill:#e0e0e0,stroke:#616161,stroke-width:2px;
+    classDef data fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px;
+
+    User((Usuario / Script)):::user
+    Portal["Portal Web Unisimon"]:::system
+
+    subgraph ScraperCore
+        direction TB
+        Init["Agente 1: Inicialización<br/>.env y Headers"]:::agent
+        Auth["Agente 2: Login<br/>Cookies y Session"]:::agent
+        Nav["Agente 3: Navegación<br/>Requests GET"]:::agent
+        Parse["Agente 4: Procesamiento<br/>BeautifulSoup"]:::agent
+        Export["Agente 5: Exportación<br/>Formato JSON"]:::agent
+    end
+
+    User -->|"Input: Código"| Init
+    Init -->|"Config"| Auth
+    Auth --|"POST Login"|--> Portal
+    Portal --|"Set-Cookie"|--> Auth
+    Auth --|"Session Activa"|--> Nav
+    Nav --|"GET Notas"|--> Portal
+    Portal --|"HTML Table"|--> Nav
+    Nav -->|"HTML Crudo"| Parse
+    Parse -->|"Dict/List"| Export
+    Export -->|"JSON"| User
+```
+
+Si el diagrama Mermaid no se muestra en tu visor, puedes usar [mermaid.live](https://mermaid.live/) pegando el código anterior, o la representación en texto siguiente:
+
+```text
++---------------------+       +------------------------+
+| USUARIO / SCRIPT     |       | PORTAL WEB UNISIMON     |
++---------------------+       +------------------------+
+           |                               ^
+           | 1. Input: Código              | 6. HTML Table (Respuesta)
+           v                               |
++---------------------+       +------------------------+
+| AGENTE 1: INIC.     |       |                        |
+| • Carga .env        |       |                        |
+| • Headers (User-Ag) |       |                        |
++----------+----------+       +------------------------+
+           |
+           | 2. Config
+           v
++---------------------+
+| AGENTE 2: LOGIN     |<------| 5. Set-Cookie (Sesión)
+| • requests.Session()|
+| • POST Credenciales |
++----------+----------+
+           |
+           | 3. Session Activa (Herencia de cookies)
+           v
++---------------------+
+| AGENTE 3: NAV.      |<------| 4. GET /notas (Solicitud)
+| • Manejo Errores    |
+| • Descarga HTML     |
++----------+----------+
+           |
+           | 7. HTML Crudo (<table>)
+           v
++---------------------+
+| AGENTE 4: PROCESAR  |
+| • BeautifulSoup (bs4)|
+| • Selectores tr/td  |
+| • Limpieza strings  |
++----------+----------+
+           |
+           | 8. Lista de Objetos Python
+           v
++---------------------+
+| AGENTE 5: EXPORTAR  |
+| • Convertir a JSON  |
++---------------------+
+           |
+           | 9. JSON Final
+           v
+   [ RESULTADO FINAL ]
+```
+
+---
+
 ## 🛠️ Tecnologías, estándares y protocolos
 
 Tabla por categoría de lo usado en la implementación del repo:
