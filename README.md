@@ -25,12 +25,12 @@ Tabla por categoría de lo usado en la implementación del repo:
 <tr>
 <td style="background-color:#e8f5e9;">Orquestación</td>
 <td style="background-color:#e8f5e9;">LangGraph</td>
-<td style="background-color:#e8f5e9;">Grafo de estados: auth → discovery → extracción → reporte.</td>
+<td style="background-color:#e8f5e9;">Grafo de estados: auth → discovery → extracción → reporte. <a href="docs/ORQUESTACION_LANGGRAPH_LANGCHAIN.md">Trabajo en conjunto con LangChain →</a></td>
 </tr>
 <tr>
 <td style="background-color:#e8f5e9;">Orquestación</td>
 <td style="background-color:#e8f5e9;">LangChain</td>
-<td style="background-color:#e8f5e9;">Prompts (ChatPromptTemplate), mensajes (HumanMessage), integración con LLMs.</td>
+<td style="background-color:#e8f5e9;">Prompts (ChatPromptTemplate), mensajes (HumanMessage), integración con LLMs. <a href="docs/ORQUESTACION_LANGGRAPH_LANGCHAIN.md">Trabajo en conjunto con LangGraph →</a></td>
 </tr>
 <tr>
 <td style="background-color:#fff3e0;">Automatización y scraping</td>
