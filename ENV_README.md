@@ -160,6 +160,7 @@ python debug_submissions.py
 
 ## 📝 Notas Importantes
 
+- **Comando recomendado:** `python -m lms_agent_scraper.cli run` (usa valores de `.env`).
 - **Python 3.10+** requerido (v2 y recomendado para legacy).
 - **Siempre activa el entorno virtual** antes de ejecutar el scraper.
 - **v2:** las credenciales y la URL del portal van en `.env` (no versionado); ver `.env.example`.
