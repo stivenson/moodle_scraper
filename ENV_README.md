@@ -2,18 +2,26 @@
 
 **Requisito:** Python **3.10+**.
 
+**Comando más sencillo (por defecto):** una vez activado el entorno, instalado el paquete (`pip install -e .`) y Playwright (`playwright install chromium`), y configurado `.env` desde `.env.example`, ejecuta:
+
+```bash
+python -m lms_agent_scraper.cli run
+```
+
+Usa los valores por defecto de `.env` (perfil, URL, credenciales, días). No requiere argumentos adicionales.
+
 ## 📁 Estructura del Proyecto
 
 ```
 unisimon_scraper/
 ├── venv/                          # Entorno virtual (crear con: python -m venv venv)
 ├── activate_env.bat               # Script de activación (Windows)
-├── .env.example                   # Plantilla de variables para v2 (copiar a .env)
+├── .env.example                   # Plantilla de variables (v2 y legacy; copiar a .env)
 ├── validate_skills.py             # Valida prompts LLM (SKILL.md)
 ├── scraper.py                     # Scraper básico (legacy)
 ├── scraper_hybrid.py              # Scraper híbrido (legacy)
 ├── scraper_selenium.py            # Scraper con Selenium (legacy)
-├── config.py                      # Configuración legacy (placeholders; no versionar credenciales)
+├── config.py                      # Lee desde .env para scripts legacy (mismas variables que v2)
 ├── utils.py                       # Utilidades legacy
 ├── requirements.txt               # Dependencias legacy
 ├── pyproject.toml                 # Paquete v2: pip install -e .
@@ -46,8 +54,8 @@ activate_env.bat
 # Activar el entorno virtual
 venv\Scripts\activate
 
-# Ejecutar el scraper
-python scraper_hybrid.py
+# Ejecutar el scraper (comando por defecto)
+python -m lms_agent_scraper.cli run
 
 # Desactivar el entorno
 deactivate
@@ -96,6 +104,8 @@ Una vez activado el entorno virtual:
 
 ### v2 – LMS Agent Scraper (recomendado)
 
+**Comando por defecto (el más sencillo):**
+
 ```bash
 # 1. Instalar el paquete en modo editable (solo la primera vez)
 pip install -e .
@@ -103,17 +113,13 @@ pip install -e .
 # 2. Instalar navegador para Playwright (solo la primera vez)
 playwright install chromium
 
-# 3. Configurar .env (copiar desde .env.example: PORTAL_PROFILE, PORTAL_BASE_URL, PORTAL_USERNAME, PORTAL_PASSWORD)
+# 3. Configurar .env (copiar .env.example a .env; definir PORTAL_PROFILE, PORTAL_BASE_URL, PORTAL_USERNAME, PORTAL_PASSWORD)
 
-# 4. Ejecutar
+# 4. Ejecutar (usa valores por defecto del .env)
 python -m lms_agent_scraper.cli run
-# Con perfil explícito (ej. Unisimon Aula Pregrado):
-python -m lms_agent_scraper.cli run --profile moodle_unisimon
-
-# Listar/validar perfiles
-python -m lms_agent_scraper.cli profiles list
-python -m lms_agent_scraper.cli profiles validate moodle_unisimon
 ```
+
+Otros comandos opcionales: `python -m lms_agent_scraper.cli run --profile moodle_unisimon`, `profiles list`, `profiles validate moodle_unisimon`.
 
 ### Legacy
 
@@ -133,6 +139,9 @@ python scraper_selenium.py
 ```bash
 # Validar skills (prompts LLM en SKILL.md)
 python validate_skills.py
+
+# Depuración opcional del estado de entregas (legacy, scraper híbrido)
+python debug_submissions.py
 ```
 
 ## 🐛 Solución de Problemas
@@ -146,8 +155,7 @@ python validate_skills.py
 - Reinstala las dependencias: `pip install -r requirements.txt`
 
 ### Error de login en el scraper
-- **Legacy:** credenciales en `config.py` (usa placeholders; no versionar las reales).
-- **v2:** configura `PORTAL_USERNAME` y `PORTAL_PASSWORD` en `.env` (copiar desde `.env.example`).
+- **v2 y legacy:** configura `PORTAL_BASE_URL`, `PORTAL_USERNAME` y `PORTAL_PASSWORD` en `.env`. `config.py` (legacy) también lee desde `.env`.
 - Asegúrate de tener conexión a internet; el portal puede estar temporalmente fuera de servicio.
 
 ## 📝 Notas Importantes

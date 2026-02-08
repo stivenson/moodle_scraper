@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 """
-Debug script to check submission status detection
+Script opcional de depuración para revisar la detección del estado de entrega
+(submission status) con el scraper legacy híbrido (Selenium + spaCy).
+
+Uso: python debug_submissions.py
+
+Requisitos:
+- .env configurado (o variables de entorno): PORTAL_BASE_URL, PORTAL_LOGIN_PATH, PORTAL_USERNAME, PORTAL_PASSWORD (config.py los lee desde .env).
+- Google Chrome instalado (Selenium usa Chrome/ChromeDriver; si no tienes Chrome,
+  usa el flujo v2: python -m lms_agent_scraper.cli run con Playwright).
+- pip install -r requirements.txt (selenium, webdriver-manager, spacy, etc.).
+
+No es parte del flujo v2 (python -m lms_agent_scraper.cli run).
 """
 
 from scraper_hybrid import UnisimonScraperHybrid

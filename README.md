@@ -10,13 +10,13 @@
 
 <div align="center">
 
-**Scraper automatizado para extraer tareas pendientes del portal LMS (Unisimon Aula Pregrado y otros). Workflow LangGraph, perfiles YAML, servidor MCP y soporte para múltiples portales.**
+**Extrae cursos y tareas próximas a entregar del Aula Extendida de la Universidad Simón Bolívar (Colombia).** Pensado como plantilla reutilizable para Aulas Extendidas (Moodle/LMS) de otras universidades: perfiles YAML, workflow LangGraph y servidor MCP.
 
 </div>
 
 ---
 
-**🆕 Versión 2 (LMS Agent Scraper):** Framework generalizado con LangGraph, perfiles YAML, MCP y soporte para múltiples portales LMS. Ver sección **"LMS Agent Scraper (v2)"** más abajo.
+**Forma recomendada de uso:** configurar `.env` (desde `.env.example`) y ejecutar el comando por defecto (véase [Inicio rápido](#-inicio-rápido) más abajo).
 
 ### 📍 Flujo del scraper (mapa)
 
@@ -53,6 +53,25 @@ graph TD
     Extract -->|assignments| Report
     Report -->|reporte| User
 ```
+
+---
+
+## ⚡ Inicio rápido
+
+La forma más sencilla de usar el proyecto es el comando **por defecto**, que usa los valores de tu `.env` (perfil, URL del portal, credenciales, días, etc.):
+
+```bash
+pip install -e .
+playwright install chromium
+```
+
+Copia `.env.example` a `.env` y configura al menos: `PORTAL_PROFILE` (ej. `moodle_unisimon` para Aula Extendida Unisimón), `PORTAL_BASE_URL`, `PORTAL_USERNAME`, `PORTAL_PASSWORD`. Luego:
+
+```bash
+python -m lms_agent_scraper.cli run
+```
+
+**Valores por defecto:** se usa el perfil indicado en `PORTAL_PROFILE`, los días en `SCRAPER_DAYS_AHEAD` / `SCRAPER_DAYS_BEHIND`, y el reporte se escribe en `reports/`. Para Unisimon Aula Pregrado conviene `PORTAL_PROFILE=moodle_unisimon`. Sin argumentos adicionales, este comando es suficiente.
 
 ---
 
@@ -229,7 +248,7 @@ unisimon_scraper/
 ├── scraper.py              # Script principal (legacy)
 ├── scraper_selenium.py     # Alternativa con Selenium (legacy)
 ├── scraper_hybrid.py       # Híbrido (legacy)
-├── config.py               # Configuración legacy
+├── config.py               # Lee desde .env para scripts legacy (mismas variables que v2)
 ├── utils.py                # Utilidades legacy
 ├── requirements.txt
 ├── pyproject.toml          # Paquete instalable (v2)
@@ -257,50 +276,22 @@ unisimon_scraper/
 └── reports/                # Reportes Markdown generados
 ```
 
-## ⚙️ Configuración (legacy)
+## 📜 Scripts legacy (alternativos)
 
-### 1. 📦 Instalar Dependencias
+Para uso habitual se recomienda **`python -m lms_agent_scraper.cli run`** con `.env` (véase [Inicio rápido](#-inicio-rápido)). Los siguientes scripts son alternativas sin el paquete v2.
 
-```bash
-pip install -r requirements.txt
-```
+**Configuración legacy:** `config.py` lee desde **`.env`** (mismas variables que v2: `PORTAL_BASE_URL`, `PORTAL_LOGIN_PATH`, `PORTAL_USERNAME`, `PORTAL_PASSWORD`, `SCRAPER_DAYS_AHEAD`, `SCRAPER_DAYS_BEHIND`, `SCRAPER_DEBUG_MODE`, `SCRAPER_SAVE_HTML_DEBUG`, `OUTPUT_DIR`). Instalar dependencias: `pip install -r requirements.txt`.
 
-### 2. 🔑 Configurar Credenciales
+**Ejecución:** `python scraper.py`, `python scraper_hybrid.py` o `python scraper_selenium.py` según el método que uses.
 
-Edita `config.py` y actualiza las siguientes constantes:
-
-```python
-# Credenciales de acceso
-USERNAME = 'tu_usuario'
-PASSWORD = 'tu_contraseña'
-
-# Período de consulta (en días)
-DAYS_AHEAD = 21  # Cambia este valor para modificar el período
-```
-
-### 3. 🎛️ Personalizar Configuración
-
-Puedes modificar estas constantes en `config.py`:
-
-- `DAYS_AHEAD`: Número de días hacia adelante para buscar tareas (por defecto: 21 días)
-- `REQUEST_TIMEOUT`: Timeout para las peticiones HTTP (por defecto: 30 segundos)
-- `DEBUG_MODE`: Activar/desactivar mensajes de debug
-- `SAVE_HTML_DEBUG`: Guardar páginas HTML para análisis
-
-## 🎯 Uso (legacy)
-
-### ▶️ Ejecución Básica
-
-```bash
-python scraper.py
-```
+**Utilidad de depuración (opcional):** `python debug_submissions.py` — revisa la detección del estado de entrega (submission status) con el scraper híbrido; requiere `.env` con credenciales (config.py lee desde .env) y **Google Chrome instalado** (Selenium). Si no tienes Chrome, usa el flujo v2 con Playwright.
 
 ### 📤 Salida
 
-El script generará:
+Tanto el comando por defecto (`python -m lms_agent_scraper.cli run`) como los scripts legacy generan:
 
-1. **Reporte Markdown**: `reports/assignments_report_YYYYMMDD_HHMMSS.md`
-2. **Archivos de Debug** (si está habilitado): `debug_html/`
+1. **Reporte Markdown** en `reports/assignments_report_YYYYMMDD_HHMMSS.md`
+2. **Archivos de Debug** en `debug_html/` si está habilitado (`SCRAPER_DEBUG_MODE=true` en v2 o `SAVE_HTML_DEBUG` en legacy)
 3. **Mensajes en consola** con el progreso y resultados
 
 ## 📊 Formato del Reporte
@@ -319,9 +310,8 @@ El reporte incluye:
 
 Si el login falla:
 
-1. Verifica las credenciales en `config.py`
-2. Comprueba que la URL del portal sea correcta
-3. Revisa los archivos HTML de debug en `debug_html/`
+1. **v2 y legacy:** verifica `PORTAL_BASE_URL`, `PORTAL_USERNAME` y `PORTAL_PASSWORD` en `.env` (config.py también lee desde .env).
+2. Comprueba que la URL del portal sea correcta y revisa `debug_html/` si está habilitado.
 
 ### 📭 No se Encuentran Tareas
 
@@ -380,7 +370,7 @@ class UnisimonSeleniumScraper:
 ## 📝 Notas Importantes
 
 - ⚠️ **Uso Responsable**: Este scraper es para uso personal únicamente
-- 🔒 **Seguridad**: En el flujo legacy las credenciales están en `config.py`; en v2 se usan variables de entorno (`.env`, no versionado; ver `.env.example`). Entorno virtual: `ENV_README.md`.
+- 🔒 **Seguridad**: Credenciales en `.env` (v2 y legacy; `config.py` lee desde `.env`). No versionar `.env`. Ver `.env.example` y `ENV_README.md`.
 - 📊 **Limitaciones**: Depende de la estructura HTML del portal
 - 🔄 **Mantenimiento**: Puede requerir actualizaciones si el portal cambia
 
@@ -388,19 +378,21 @@ class UnisimonSeleniumScraper:
 
 Si encuentras problemas:
 
-1. Revisa los archivos de debug en `debug_html/`
-2. Verifica que las dependencias estén instaladas correctamente
-3. Considera usar Selenium para portales con JavaScript
-4. Revisa la estructura HTML del portal para actualizar los selectores
+1. Asegúrate de usar **`python -m lms_agent_scraper.cli run`** con `.env` configurado (véase [Inicio rápido](#-inicio-rápido)).
+2. Revisa los archivos de debug en `debug_html/` (con `SCRAPER_DEBUG_MODE=true` en `.env`).
+3. Verifica dependencias (`pip install -e .`, `playwright install chromium`) y credenciales en `.env`.
+4. Para portales con mucho JavaScript, el flujo v2 ya usa Playwright; los scripts legacy pueden usar Selenium.
 
 ---
 
 ## 🚀 LMS Agent Scraper (v2)
 
+El comando por defecto **`python -m lms_agent_scraper.cli run`** es la forma más sencilla de uso (véase [Inicio rápido](#-inicio-rápido)).
+
 ### 📋 Requisitos
 
 - Python 3.10+
-- Playwright: `pip install playwright && playwright install chromium`
+- `pip install -e .` y `playwright install chromium`
 - Variables de entorno en `.env` (copiar desde `.env.example`)
 
 ### ⚙️ Configuración (v2)
@@ -453,21 +445,25 @@ Todos los campos son **opcionales**. Si no se definen, se usan valores por defec
 
 ### ▶️ Uso (v2)
 
+**Comando por defecto (el más sencillo):**
+
 ```bash
-# Instalar el paquete en modo editable (desde la raíz del repo)
-pip install -e .
-
-# Ejecutar scraper (perfil desde .env, ej. moodle_default)
 python -m lms_agent_scraper.cli run
+```
 
-# Con perfil específico (recomendado para Unisimon Aula Pregrado)
+Usa el perfil y el resto de opciones definidos en `.env`. No hace falta pasar argumentos; con tener `.env` configurado basta.
+
+**Otros comandos:**
+
+```bash
+# Perfil explícito por línea de comandos (sobrescribe PORTAL_PROFILE del .env)
 python -m lms_agent_scraper.cli run --profile moodle_unisimon
-
-# Modo debug: SCRAPER_DEBUG_MODE=true en .env para guardar HTML en debug_html/ y más logs
 
 # Listar y validar perfiles
 python -m lms_agent_scraper.cli profiles list
 python -m lms_agent_scraper.cli profiles validate moodle_unisimon
+
+# Modo debug: SCRAPER_DEBUG_MODE=true en .env (guarda HTML en debug_html/ y más logs)
 
 # Tests (desde la raíz del repo)
 pytest tests/ -v
