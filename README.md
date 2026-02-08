@@ -20,7 +20,7 @@
 
 ### 📍 Flujo del scraper (mapa)
 
-El siguiente diagrama ilustra la interacción entre usuario, agentes y portal (flujo legacy de alto nivel; en v2 la orquestación es LangGraph: auth → discovery → extracción → reporte).
+El siguiente diagrama ilustra la interacción entre usuario, agentes y **Aula Extendida Unisimón**: se obtienen los cursos y las tareas próximas a entregar (flujo v2: auth → discovery → extracción → reporte).
 
 ```mermaid
 graph TD
@@ -28,28 +28,30 @@ graph TD
     classDef agent fill:#fff8e1,stroke:#ffb74d,stroke-width:2px,color:#5d4037
     classDef system fill:#e0e0e0,stroke:#757575,stroke-width:2px,color:#424242
 
-    User((Usuario / Script)):::user
-    Portal["Portal Web Unisimon"]:::system
+    User((Usuario / CLI)):::user
+    Portal["Aula Extendida Unisimón"]:::system
 
     subgraph ScraperCore
         direction TB
-        Init["Agente 1: Inicialización<br/>.env y Headers"]:::agent
-        Auth["Agente 2: Login<br/>Cookies y Session"]:::agent
-        Nav["Agente 3: Navegación<br/>Requests GET"]:::agent
-        Parse["Agente 4: Procesamiento<br/>BeautifulSoup"]:::agent
-        Export["Agente 5: Exportación<br/>Formato JSON"]:::agent
+        Init["Inicialización<br/>.env y perfil YAML"]:::agent
+        Auth["Autenticación<br/>Login y sesión"]:::agent
+        Discovery["Course discovery<br/>Mis cursos"]:::agent
+        Extract["Extracción<br/>Tareas por curso y fechas"]:::agent
+        Report["Reporte<br/>Markdown / JSON"]:::agent
     end
 
-    User -->|Input: Código| Init
-    Init -->|Config| Auth
+    User -->|run| Init
+    Init -->|config| Auth
     Auth -->|POST Login| Portal
     Portal -->|Set-Cookie| Auth
-    Auth -->|Session Activa| Nav
-    Nav -->|GET Notas| Portal
-    Portal -->|HTML Table| Nav
-    Nav -->|HTML Crudo| Parse
-    Parse -->|Dict/List| Export
-    Export -->|JSON| User
+    Auth -->|sesión| Discovery
+    Discovery -->|GET Mis cursos| Portal
+    Portal -->|HTML cursos| Discovery
+    Discovery -->|lista cursos| Extract
+    Extract -->|GET cada curso| Portal
+    Portal -->|HTML tareas| Extract
+    Extract -->|assignments| Report
+    Report -->|reporte| User
 ```
 
 ---
