@@ -24,9 +24,9 @@ El siguiente diagrama ilustra la interacción entre usuario, agentes y portal (f
 
 ```mermaid
 graph TD
-    classDef user fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef agent fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
-    classDef system fill:#e0e0e0,stroke:#616161,stroke-width:2px
+    classDef user fill:#c5cae9,stroke:#5c6bc0,stroke-width:2px,color:#283593
+    classDef agent fill:#fff8e1,stroke:#ffb74d,stroke-width:2px,color:#5d4037
+    classDef system fill:#e0e0e0,stroke:#757575,stroke-width:2px,color:#424242
 
     User((Usuario / Script)):::user
     Portal["Portal Web Unisimon"]:::system
