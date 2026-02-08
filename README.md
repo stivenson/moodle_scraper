@@ -1,10 +1,24 @@
-# Unisimon Portal Scraper / LMS Agent Scraper
+# 📚 Unisimon Portal Scraper / LMS Agent Scraper
 
-Un scraper automatizado para extraer tareas pendientes del portal de Unisimon Aula Pregrado.
+<div align="center">
 
-**Versión 2 (LMS Agent Scraper):** Framework generalizado con LangGraph, perfiles YAML, MCP y soporte para múltiples portales LMS. Ver sección "Uso LMS Agent Scraper (v2)" más abajo.
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white) ![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-FF6B6B?style=for-the-badge&logo=graphql&logoColor=white) ![LangChain](https://img.shields.io/badge/LangChain-0.3+-1C3A3E?style=for-the-badge&logo=chainlink&logoColor=white) ![Playwright](https://img.shields.io/badge/Playwright-1.40+-45BA48?style=for-the-badge&logo=playwright&logoColor=white) ![Ollama](https://img.shields.io/badge/Ollama-LLM%20local-000000?style=for-the-badge) ![MCP](https://img.shields.io/badge/MCP-Server-8B5CF6?style=for-the-badge) ![Moodle](https://img.shields.io/badge/Moodle-Aula%20Pregrado-009C3B?style=for-the-badge&logo=moodle&logoColor=white) ![Status](https://img.shields.io/badge/Status-Active-success?style=for-the-badge)
 
-## Tecnologías, estándares y protocolos
+</div>
+
+---
+
+<div align="center">
+
+**Scraper automatizado para extraer tareas pendientes del portal LMS (Unisimon Aula Pregrado y otros). Workflow LangGraph, perfiles YAML, servidor MCP y soporte para múltiples portales.**
+
+</div>
+
+---
+
+**🆕 Versión 2 (LMS Agent Scraper):** Framework generalizado con LangGraph, perfiles YAML, MCP y soporte para múltiples portales LMS. Ver sección **"LMS Agent Scraper (v2)"** más abajo.
+
+## 🛠️ Tecnologías, estándares y protocolos
 
 Tabla por categoría de lo usado en la implementación del repo:
 
@@ -205,15 +219,15 @@ unisimon_scraper/
 └── reports/                # Reportes Markdown generados
 ```
 
-## ⚙️ Configuración
+## ⚙️ Configuración (legacy)
 
-### 1. Instalar Dependencias
+### 1. 📦 Instalar Dependencias
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configurar Credenciales
+### 2. 🔑 Configurar Credenciales
 
 Edita `config.py` y actualiza las siguientes constantes:
 
@@ -226,7 +240,7 @@ PASSWORD = 'tu_contraseña'
 DAYS_AHEAD = 21  # Cambia este valor para modificar el período
 ```
 
-### 3. Personalizar Configuración
+### 3. 🎛️ Personalizar Configuración
 
 Puedes modificar estas constantes en `config.py`:
 
@@ -235,15 +249,15 @@ Puedes modificar estas constantes en `config.py`:
 - `DEBUG_MODE`: Activar/desactivar mensajes de debug
 - `SAVE_HTML_DEBUG`: Guardar páginas HTML para análisis
 
-## 🎯 Uso
+## 🎯 Uso (legacy)
 
-### Ejecución Básica
+### ▶️ Ejecución Básica
 
 ```bash
 python scraper.py
 ```
 
-### Salida
+### 📤 Salida
 
 El script generará:
 
@@ -263,7 +277,7 @@ El reporte incluye:
 
 ## 🔧 Solución de Problemas
 
-### Error de Autenticación
+### 🔐 Error de Autenticación
 
 Si el login falla:
 
@@ -271,7 +285,7 @@ Si el login falla:
 2. Comprueba que la URL del portal sea correcta
 3. Revisa los archivos HTML de debug en `debug_html/`
 
-### No se Encuentran Tareas
+### 📭 No se Encuentran Tareas
 
 Si no se encuentran tareas:
 
@@ -280,7 +294,7 @@ Si no se encuentran tareas:
 3. **Sin tareas**: Realmente no hay tareas en el período consultado
 4. **v2 / Unisimon**: Si usas el scraper v2 con Unisimon Aula Pregrado, pon `PORTAL_PROFILE=moodle_unisimon` en `.env`. Con `moodle_default` puede que no se detecten las tarjetas de curso. Para depurar: `SCRAPER_DEBUG_MODE=true` y revisar `debug_html/courses_page.html`.
 
-### Migración a Selenium
+### 🔄 Migración a Selenium
 
 Si BeautifulSoup no es suficiente (contenido JavaScript), sigue estos pasos:
 
@@ -343,15 +357,15 @@ Si encuentras problemas:
 
 ---
 
-## LMS Agent Scraper (v2)
+## 🚀 LMS Agent Scraper (v2)
 
-### Requisitos
+### 📋 Requisitos
 
 - Python 3.10+
 - Playwright: `pip install playwright && playwright install chromium`
 - Variables de entorno en `.env` (copiar desde `.env.example`)
 
-### Configuración
+### ⚙️ Configuración (v2)
 
 1. Copiar `.env.example` a `.env` y configurar:
    - `PORTAL_PROFILE` (ej: `moodle_unisimon` o `moodle_default`). **Para Unisimon Aula Pregrado (aulapregrado.unisimon.edu.co) usar `moodle_unisimon`.**
@@ -359,9 +373,9 @@ Si encuentras problemas:
    - Opcional: `SCRAPER_DAYS_AHEAD`, `SCRAPER_DAYS_BEHIND`, `SCRAPER_MAX_COURSES`, `SCRAPER_OUTPUT_DIR`, `SCRAPER_DEBUG_MODE` (guardar HTML en `debug_html/` y más logs)
    - Opcional (Ollama): `OLLAMA_BASE_URL`, `OLLAMA_MODEL_NAME`, `OLLAMA_TEMPERATURE`, `OLLAMA_NUM_CTX`, `OLLAMA_NUM_PREDICT` — usado para extraer la lista de cursos desde el HTML, clasificar páginas como “curso” en el discovery por contenido y (en el futuro) sugerir selectores. Requiere Ollama en ejecución y un modelo (p. ej. `ollama run glm-4.7-flash`). Ver [ollama.com/library/glm-4.7-flash](https://ollama.com/library/glm-4.7-flash). Si no está disponible, la extracción se hace con BeautifulSoup y Playwright.
 
-2. Perfiles YAML en `profiles/` definen selectores, auth y opciones por portal (Moodle, Canvas, etc.). El perfil `moodle_unisimon` está ajustado para Unisimon Aula Pregrado e incluye `course_discovery` para el fallback por contenido.
+2. 📁 Perfiles YAML en `profiles/` definen selectores, auth y opciones por portal (Moodle, Canvas, etc.). El perfil `moodle_unisimon` está ajustado para Unisimon Aula Pregrado e incluye `course_discovery` para el fallback por contenido.
 
-### Detección de cursos (v2)
+### 🔍 Detección de cursos (v2)
 
 En la página "Mis cursos" del portal, la lista de cursos se obtiene en este orden:
 
@@ -373,7 +387,7 @@ En la página "Mis cursos" del portal, la lista de cursos se obtiene en este ord
 
 Antes de extraer, se detecta la presencia de tarjetas de curso (`detect_courses_presence`) y, si el perfil lo indica, se puede expandir "Ver más" / paginación (`more_navigation`) antes de capturar el HTML.
 
-#### Esquema del bloque `courses` en el perfil
+#### 📐 Esquema del bloque `courses` en el perfil
 
 Todos los campos son **opcionales**. Si no se definen, se usan valores por defecto compatibles con Moodle (block_myoverview / tarjetas). Así puedes reutilizar el mismo código en otros portales (Canvas, Blackboard, Moodle custom) solo configurando el perfil.
 
@@ -399,7 +413,7 @@ Todos los campos son **opcionales**. Si no se definen, se usan valores por defec
 </tbody>
 </table>
 
-### Uso
+### ▶️ Uso (v2)
 
 ```bash
 # Instalar el paquete en modo editable (desde la raíz del repo)
@@ -421,7 +435,7 @@ python -m lms_agent_scraper.cli profiles validate moodle_unisimon
 pytest tests/ -v
 ```
 
-### MCP Server (Cursor / Claude Desktop)
+### 🔌 MCP Server (Cursor / Claude Desktop)
 
 En la configuración MCP del cliente:
 
@@ -442,9 +456,9 @@ En la configuración MCP del cliente:
 }
 ```
 
-Herramientas expuestas: `get_pending_assignments`, `get_submitted_assignments`, `get_courses`, `generate_report`, `check_deadlines`, `list_profiles`. El servidor envía `instructions` al cliente indicando que se trata del portal LMS de la **Universidad Simón Bolívar (Unisimon), Aula Pregrado**, para que el agente tenga ese contexto.
+🛠️ Herramientas expuestas: `get_pending_assignments`, `get_submitted_assignments`, `get_courses`, `generate_report`, `check_deadlines`, `list_profiles`. El servidor envía `instructions` al cliente indicando que se trata del portal LMS de la **Universidad Simón Bolívar (Unisimon), Aula Pregrado**, para que el agente tenga ese contexto.
 
-### Desarrollo con Cursor
+### 💻 Desarrollo con Cursor
 
 Este proyecto se desarrolla con Cursor. Se usan **reglas globales** en `~/.cursor/rules/` (aplican a todos los proyectos):
 
@@ -461,7 +475,7 @@ Este proyecto se desarrolla con Cursor. Se usan **reglas globales** en `~/.curso
 
 Para analizar este repo con unused-vars (y opcionalmente el `.env`), el agente puede llamar a la herramienta `analyze_unused` con `path` al directorio del proyecto y `env_file` al `.env`.
 
-### Agent Skills (skills.sh)
+### 🧩 Agent Skills (skills.sh)
 
 Para mejorar el comportamiento de agentes al trabajar con este repo, instala skills desde [skills.sh](https://skills.sh/). Se instalan en **`.agents/skills/`** y **Cursor (y otros agentes compatibles) los usan automáticamente** al trabajar en este repositorio. En `docs/AGENT_SKILLS.md` encontrarás la lista por prioridad, la tabla labores–skills y la integración con los agentes.
 

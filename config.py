@@ -1,5 +1,7 @@
 # Configuration file for Unisimon Portal Scraper
 # ================================================
+# No versionar credenciales reales. Usar placeholders aquí o copiar a config.local.py
+# (y añadir config.local.py a .gitignore) para los scripts legacy (scraper.py, etc.).
 
 # TIME RANGE CONFIGURATION
 # =========================

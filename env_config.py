@@ -1,8 +1,8 @@
 # Configuración del Entorno Virtual
 # =================================
 
-# Ruta del entorno virtual
-VENV_PATH = "C:\\Users\\stive\\OneDrive\\Documentos\\UnisimonDataAI\\algoritmia\\unisimon_scraper\\venv"
+# Ruta del entorno virtual (relativa al proyecto)
+VENV_PATH = "venv"
 
 # Comandos de activación
 ACTIVATE_WINDOWS = "venv\\Scripts\\activate"

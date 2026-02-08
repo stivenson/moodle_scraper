@@ -1,6 +1,7 @@
 # Environment
 .env
 .venv/
+_filter_replace_secrets.py
 venv/
 env/
 ENV/
