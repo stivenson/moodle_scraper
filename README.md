@@ -4,6 +4,162 @@ Un scraper automatizado para extraer tareas pendientes del portal de Unisimon Au
 
 **Versión 2 (LMS Agent Scraper):** Framework generalizado con LangGraph, perfiles YAML, MCP y soporte para múltiples portales LMS. Ver sección "Uso LMS Agent Scraper (v2)" más abajo.
 
+## Tecnologías, estándares y protocolos
+
+Tabla por categoría de lo usado en la implementación del repo:
+
+<table>
+<thead>
+<tr>
+<th>Categoría</th>
+<th>Tecnología / Estándar / Protocolo</th>
+<th>Uso en el proyecto</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="background-color:#e3f2fd;">Lenguaje y runtime</td>
+<td style="background-color:#e3f2fd;">Python 3.10+</td>
+<td style="background-color:#e3f2fd;">Lenguaje principal; tipado y sintaxis modernos.</td>
+</tr>
+<tr>
+<td style="background-color:#e8f5e9;">Orquestación</td>
+<td style="background-color:#e8f5e9;">LangGraph</td>
+<td style="background-color:#e8f5e9;">Grafo de estados: auth → discovery → extracción → reporte.</td>
+</tr>
+<tr>
+<td style="background-color:#e8f5e9;">Orquestación</td>
+<td style="background-color:#e8f5e9;">LangChain</td>
+<td style="background-color:#e8f5e9;">Prompts (ChatPromptTemplate), mensajes (HumanMessage), integración con LLMs.</td>
+</tr>
+<tr>
+<td style="background-color:#fff3e0;">Automatización y scraping</td>
+<td style="background-color:#fff3e0;">Playwright</td>
+<td style="background-color:#fff3e0;">Navegador headless: login, “Mis cursos”, discovery y captura de HTML.</td>
+</tr>
+<tr>
+<td style="background-color:#fff3e0;">Automatización y scraping</td>
+<td style="background-color:#fff3e0;">BeautifulSoup4</td>
+<td style="background-color:#fff3e0;">Parseo HTML: tarjetas de curso, assignments, fechas.</td>
+</tr>
+<tr>
+<td style="background-color:#fff3e0;">Automatización y scraping</td>
+<td style="background-color:#fff3e0;">lxml</td>
+<td style="background-color:#fff3e0;">Parser rápido para BeautifulSoup.</td>
+</tr>
+<tr>
+<td style="background-color:#fff3e0;">Automatización y scraping</td>
+<td style="background-color:#fff3e0;">requests</td>
+<td style="background-color:#fff3e0;">HTTP para páginas de curso (sesión autenticada).</td>
+</tr>
+<tr>
+<td style="background-color:#f3e5f5;">LLM e IA</td>
+<td style="background-color:#f3e5f5;">Ollama</td>
+<td style="background-color:#f3e5f5;">Modelos locales para extracción de cursos y clasificación de páginas.</td>
+</tr>
+<tr>
+<td style="background-color:#f3e5f5;">LLM e IA</td>
+<td style="background-color:#f3e5f5;">langchain-ollama</td>
+<td style="background-color:#f3e5f5;">Cliente ChatOllama e integración con LangChain.</td>
+</tr>
+<tr>
+<td style="background-color:#e0f2f1;">Configuración</td>
+<td style="background-color:#e0f2f1;">Pydantic / pydantic-settings</td>
+<td style="background-color:#e0f2f1;">Modelos de configuración y validación desde .env (portal, scraper, Ollama).</td>
+</tr>
+<tr>
+<td style="background-color:#e0f2f1;">Configuración</td>
+<td style="background-color:#e0f2f1;">python-dotenv</td>
+<td style="background-color:#e0f2f1;">Carga de variables de entorno desde .env.</td>
+</tr>
+<tr>
+<td style="background-color:#e0f2f1;">Configuración</td>
+<td style="background-color:#e0f2f1;">PyYAML</td>
+<td style="background-color:#e0f2f1;">Perfiles por portal (selectores, auth, course_discovery) en profiles/.</td>
+</tr>
+<tr>
+<td style="background-color:#e0f2f1;">Configuración</td>
+<td style="background-color:#e0f2f1;">Typer</td>
+<td style="background-color:#e0f2f1;">CLI: run, profiles list/validate.</td>
+</tr>
+<tr>
+<td style="background-color:#e0f2f1;">Configuración</td>
+<td style="background-color:#e0f2f1;">Rich</td>
+<td style="background-color:#e0f2f1;">Salida enriquecida en terminal (opcional en CLI).</td>
+</tr>
+<tr>
+<td style="background-color:#ffebee;">Protocolos</td>
+<td style="background-color:#ffebee;">MCP (Model Context Protocol)</td>
+<td style="background-color:#ffebee;">Servidor FastMCP vía stdio; herramientas get_courses, get_pending_assignments, etc.</td>
+</tr>
+<tr>
+<td style="background-color:#ffebee;">Protocolos</td>
+<td style="background-color:#ffebee;">HTTP/HTTPS</td>
+<td style="background-color:#ffebee;">Comunicación con el portal LMS y con Ollama.</td>
+</tr>
+<tr>
+<td style="background-color:#ffebee;">Protocolos</td>
+<td style="background-color:#ffebee;">stdio</td>
+<td style="background-color:#ffebee;">Transporte del servidor MCP para Cursor / Claude Desktop.</td>
+</tr>
+<tr>
+<td style="background-color:#fafafa;">Formatos</td>
+<td style="background-color:#fafafa;">YAML</td>
+<td style="background-color:#fafafa;">Perfiles de portal y front matter en skills (SKILL.md).</td>
+</tr>
+<tr>
+<td style="background-color:#fafafa;">Formatos</td>
+<td style="background-color:#fafafa;">Markdown</td>
+<td style="background-color:#fafafa;">Reportes de tareas y documentación de skills (SKILL.md).</td>
+</tr>
+<tr>
+<td style="background-color:#fafafa;">Formatos</td>
+<td style="background-color:#fafafa;">JSON</td>
+<td style="background-color:#fafafa;">Respuestas estructuradas del LLM (cursos, fechas); respuestas MCP.</td>
+</tr>
+<tr>
+<td style="background-color:#fafafa;">Formatos</td>
+<td style="background-color:#fafafa;">HTML</td>
+<td style="background-color:#fafafa;">Páginas del portal; parseo con BeautifulSoup y selectores CSS.</td>
+</tr>
+<tr>
+<td style="background-color:#efebe9;">Estándares y prácticas</td>
+<td style="background-color:#efebe9;">SOLID / DRY</td>
+<td style="background-color:#efebe9;">Principios de diseño; ver docs/SOLID_AND_QUALITY.md.</td>
+</tr>
+<tr>
+<td style="background-color:#efebe9;">Estándares y prácticas</td>
+<td style="background-color:#efebe9;">Selectores CSS</td>
+<td style="background-color:#efebe9;">Perfiles YAML (tarjetas, nombre, enlace, “Ver más”).</td>
+</tr>
+<tr>
+<td style="background-color:#e1f5fe;">Desarrollo</td>
+<td style="background-color:#e1f5fe;">pytest / pytest-asyncio</td>
+<td style="background-color:#e1f5fe;">Tests en tests/.</td>
+</tr>
+<tr>
+<td style="background-color:#e1f5fe;">Desarrollo</td>
+<td style="background-color:#e1f5fe;">ruff</td>
+<td style="background-color:#e1f5fe;">Linter y formateo (py310, line-length 100).</td>
+</tr>
+<tr>
+<td style="background-color:#e1f5fe;">Desarrollo</td>
+<td style="background-color:#e1f5fe;">setuptools / wheel</td>
+<td style="background-color:#e1f5fe;">Empaquetado (pyproject.toml, pip install -e .).</td>
+</tr>
+<tr>
+<td style="background-color:#fce4ec;">Portal objetivo</td>
+<td style="background-color:#fce4ec;">Moodle (Aula Pregrado)</td>
+<td style="background-color:#fce4ec;">Unisimon: aulapregrado.unisimon.edu.co; perfil moodle_unisimon.</td>
+</tr>
+<tr>
+<td style="background-color:#fff8e1;">Legacy</td>
+<td style="background-color:#fff8e1;">Selenium / webdriver-manager</td>
+<td style="background-color:#fff8e1;">Scripts alternativos scraper_selenium.py, scraper_hybrid.py.</td>
+</tr>
+</tbody>
+</table>
+
 ## 🚀 Características
 
 - ✅ Autenticación automática en el portal (Playwright)
@@ -221,21 +377,27 @@ Antes de extraer, se detecta la presencia de tarjetas de curso (`detect_courses_
 
 Todos los campos son **opcionales**. Si no se definen, se usan valores por defecto compatibles con Moodle (block_myoverview / tarjetas). Así puedes reutilizar el mismo código en otros portales (Canvas, Blackboard, Moodle custom) solo configurando el perfil.
 
-| Campo | Descripción | Por defecto (Moodle) |
-|-------|-------------|----------------------|
-| `course_link_segments` | Lista de palabras que identifican un enlace a curso si aparecen en algún segmento del path de la URL (case-insensitive). Ej.: `["course", "courses", "cursos"]`. | `["course", "courses", "cursos"]` |
-| `course_link_segment` | Alternativa en singular (una sola palabra); se convierte en lista de un elemento. | — |
-| `container` | Contenedor opcional para acotar la búsqueda (Playwright). | `[data-region='courses-view']` |
-| `selectors` | Lista de selectores CSS para enlaces a curso (Playwright). | `a[href*='course/view.php']` |
-| `card_selectors` | Selectores que identifican una tarjeta/ítem de curso (BeautifulSoup y detección de presencia). | `[data-region='course-content']`, `div.card.course-card` |
-| `name_selectors` | Dentro de cada tarjeta, selectores para el nombre del curso (texto o `title`). | `a.coursename`, `span.multiline`, `[title]` |
-| `link_selector` | Dentro de cada tarjeta, selector del enlace al curso. | Enlace cuyo `href` cumple `link_href_pattern` |
-| `link_href_pattern` | Patrón que debe aparecer en el `href` (ej. `course/view`, `/course/`). | `course/view` |
-| `fallback_containers` | Si no hay tarjetas, buscar enlaces dentro de estos contenedores. | `[data-region='courses-view']`, `.card-deck`, `.course-box` |
-| `more_navigation` | Objeto opcional para "Ver más" / paginación antes de extraer. | No se expande |
-| `more_navigation.selectors` | Lista de selectores (ej. `button:has-text('Ver más')`, `a:has-text('Siguiente')`). | — |
-| `more_navigation.expand_before_extract` | Si `true`, hacer click en los controles antes de capturar HTML. | `false` |
-| `more_navigation.max_clicks` | Número máximo de clicks en "Ver más" / siguiente. | `0` |
+<table>
+<colgroup><col style="width: 38%"><col style="width: 42%"><col style="width: 20%"></colgroup>
+<thead>
+<tr><th>Campo</th><th>Descripción</th><th>Por defecto (Moodle)</th></tr>
+</thead>
+<tbody>
+<tr><td><code>course_link_segments</code></td><td>Lista de palabras que identifican un enlace a curso si aparecen en algún segmento del path de la URL (case-insensitive). Ej.: <code>["course", "courses", "cursos"]</code>.</td><td><code>["course", "courses", "cursos"]</code></td></tr>
+<tr><td><code>course_link_segment</code></td><td>Alternativa en singular (una sola palabra); se convierte en lista de un elemento.</td><td>—</td></tr>
+<tr><td><code>container</code></td><td>Contenedor opcional para acotar la búsqueda (Playwright).</td><td><code>[data-region='courses-view']</code></td></tr>
+<tr><td><code>selectors</code></td><td>Lista de selectores CSS para enlaces a curso (Playwright).</td><td><code>a[href*='course/view.php']</code></td></tr>
+<tr><td><code>card_selectors</code></td><td>Selectores que identifican una tarjeta/ítem de curso (BeautifulSoup y detección de presencia).</td><td><code>[data-region='course-content']</code>, <code>div.card.course-card</code></td></tr>
+<tr><td><code>name_selectors</code></td><td>Dentro de cada tarjeta, selectores para el nombre del curso (texto o <code>title</code>).</td><td><code>a.coursename</code>, <code>span.multiline</code>, <code>[title]</code></td></tr>
+<tr><td><code>link_selector</code></td><td>Dentro de cada tarjeta, selector del enlace al curso.</td><td>Enlace cuyo <code>href</code> cumple <code>link_href_pattern</code></td></tr>
+<tr><td><code>link_href_pattern</code></td><td>Patrón que debe aparecer en el <code>href</code> (ej. <code>course/view</code>, <code>/course/</code>).</td><td><code>course/view</code></td></tr>
+<tr><td><code>fallback_containers</code></td><td>Si no hay tarjetas, buscar enlaces dentro de estos contenedores.</td><td><code>[data-region='courses-view']</code>, <code>.card-deck</code>, <code>.course-box</code></td></tr>
+<tr><td><code>more_navigation</code></td><td>Objeto opcional para "Ver más" / paginación antes de extraer.</td><td>No se expande</td></tr>
+<tr><td><code>more_navigation.selectors</code></td><td>Lista de selectores (ej. <code>button:has-text('Ver más')</code>, <code>a:has-text('Siguiente')</code>).</td><td>—</td></tr>
+<tr><td><code>more_navigation.expand_before_extract</code></td><td>Si <code>true</code>, hacer click en los controles antes de capturar HTML.</td><td><code>false</code></td></tr>
+<tr><td><code>more_navigation.max_clicks</code></td><td>Número máximo de clicks en "Ver más" / siguiente.</td><td><code>0</code></td></tr>
+</tbody>
+</table>
 
 ### Uso
 
