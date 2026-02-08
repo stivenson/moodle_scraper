@@ -24,10 +24,9 @@ El siguiente diagrama ilustra la interacción entre usuario, agentes y portal (f
 
 ```mermaid
 graph TD
-    classDef user fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
-    classDef agent fill:#fff9c4,stroke:#fbc02d,stroke-width:2px;
-    classDef system fill:#e0e0e0,stroke:#616161,stroke-width:2px;
-    classDef data fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px;
+    classDef user fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef agent fill:#fff9c4,stroke:#fbc02d,stroke-width:2px
+    classDef system fill:#e0e0e0,stroke:#616161,stroke-width:2px
 
     User((Usuario / Script)):::user
     Portal["Portal Web Unisimon"]:::system
@@ -41,68 +40,16 @@ graph TD
         Export["Agente 5: Exportación<br/>Formato JSON"]:::agent
     end
 
-    User -->|"Input: Código"| Init
-    Init -->|"Config"| Auth
-    Auth --|"POST Login"|--> Portal
-    Portal --|"Set-Cookie"|--> Auth
-    Auth --|"Session Activa"|--> Nav
-    Nav --|"GET Notas"|--> Portal
-    Portal --|"HTML Table"|--> Nav
-    Nav -->|"HTML Crudo"| Parse
-    Parse -->|"Dict/List"| Export
-    Export -->|"JSON"| User
-```
-
-Si el diagrama Mermaid no se muestra en tu visor, puedes usar [mermaid.live](https://mermaid.live/) pegando el código anterior, o la representación en texto siguiente:
-
-```text
-+---------------------+       +------------------------+
-| USUARIO / SCRIPT     |       | PORTAL WEB UNISIMON     |
-+---------------------+       +------------------------+
-           |                               ^
-           | 1. Input: Código              | 6. HTML Table (Respuesta)
-           v                               |
-+---------------------+       +------------------------+
-| AGENTE 1: INIC.     |       |                        |
-| • Carga .env        |       |                        |
-| • Headers (User-Ag) |       |                        |
-+----------+----------+       +------------------------+
-           |
-           | 2. Config
-           v
-+---------------------+
-| AGENTE 2: LOGIN     |<------| 5. Set-Cookie (Sesión)
-| • requests.Session()|
-| • POST Credenciales |
-+----------+----------+
-           |
-           | 3. Session Activa (Herencia de cookies)
-           v
-+---------------------+
-| AGENTE 3: NAV.      |<------| 4. GET /notas (Solicitud)
-| • Manejo Errores    |
-| • Descarga HTML     |
-+----------+----------+
-           |
-           | 7. HTML Crudo (<table>)
-           v
-+---------------------+
-| AGENTE 4: PROCESAR  |
-| • BeautifulSoup (bs4)|
-| • Selectores tr/td  |
-| • Limpieza strings  |
-+----------+----------+
-           |
-           | 8. Lista de Objetos Python
-           v
-+---------------------+
-| AGENTE 5: EXPORTAR  |
-| • Convertir a JSON  |
-+---------------------+
-           |
-           | 9. JSON Final
-           v
-   [ RESULTADO FINAL ]
+    User -->|Input: Código| Init
+    Init -->|Config| Auth
+    Auth -->|POST Login| Portal
+    Portal -->|Set-Cookie| Auth
+    Auth -->|Session Activa| Nav
+    Nav -->|GET Notas| Portal
+    Portal -->|HTML Table| Nav
+    Nav -->|HTML Crudo| Parse
+    Parse -->|Dict/List| Export
+    Export -->|JSON| User
 ```
 
 ---
