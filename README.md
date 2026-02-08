@@ -223,11 +223,6 @@ Tabla por categoría de lo usado en la implementación del repo:
 <td style="background-color:#fce4ec;">Moodle (Aula Pregrado)</td>
 <td style="background-color:#fce4ec;">Unisimon: aulapregrado.unisimon.edu.co; perfil moodle_unisimon.</td>
 </tr>
-<tr>
-<td style="background-color:#fff8e1;">Legacy</td>
-<td style="background-color:#fff8e1;">Selenium / webdriver-manager</td>
-<td style="background-color:#fff8e1;">Scripts alternativos scraper_selenium.py, scraper_hybrid.py.</td>
-</tr>
 </tbody>
 </table>
 
@@ -239,20 +234,13 @@ Tabla por categoría de lo usado en la implementación del repo:
 - 🔍 Modo debug para análisis del portal
 - 🛠️ **v2:** Workflow LangGraph (auth → discovery → extracción → reporte), perfiles YAML, MCP
 - 🛠️ **v2:** Detección de cursos: BeautifulSoup (principal), LLM (Ollama) y Playwright como respaldo; detección de presencia de tarjetas; fallback por contenido (visitar enlaces y clasificar con LLM)
-- 🛠️ Scripts legacy: `scraper.py`, `scraper_selenium.py`, `scraper_hybrid.py` para uso sin el paquete v2
 
 ## 📁 Estructura del Proyecto
 
 ```
 unisimon_scraper/
-├── scraper.py              # Script principal (legacy)
-├── scraper_selenium.py     # Alternativa con Selenium (legacy)
-├── scraper_hybrid.py       # Híbrido (legacy)
-├── config.py               # Lee desde .env para scripts legacy (mismas variables que v2)
-├── utils.py                # Utilidades legacy
-├── requirements.txt
-├── pyproject.toml          # Paquete instalable (v2)
-├── .env.example            # Plantilla de variables para v2
+├── pyproject.toml          # Paquete instalable: pip install -e .
+├── .env.example            # Plantilla de variables para v2 (copiar a .env)
 ├── profiles/               # Perfiles YAML por portal (v2)
 │   ├── moodle_unisimon.yml
 │   ├── moodle_default.yml
@@ -267,7 +255,7 @@ unisimon_scraper/
 │   ├── skills/             # Prompts LLM en SKILL.md (date-interpreter, course-extractor, etc.)
 │   └── mcp/                # Servidor MCP
 ├── validate_skills.py      # Valida que los skills (SKILL.md) carguen correctamente
-├── .agents/skills/        # Skills de skills.sh (agent-browser, pdf, webapp-testing, etc.)
+├── .agents/skills/         # Skills de skills.sh (agent-browser, pdf, webapp-testing, etc.)
 ├── docs/
 │   ├── AGENT_SKILLS.md
 │   ├── ARCHITECTURE_VERIFICATION.md
@@ -276,22 +264,12 @@ unisimon_scraper/
 └── reports/                # Reportes Markdown generados
 ```
 
-## 📜 Scripts legacy (alternativos)
-
-Para uso habitual se recomienda **`python -m lms_agent_scraper.cli run`** con `.env` (véase [Inicio rápido](#-inicio-rápido)). Los siguientes scripts son alternativas sin el paquete v2.
-
-**Configuración legacy:** `config.py` lee desde **`.env`** (mismas variables que v2: `PORTAL_BASE_URL`, `PORTAL_LOGIN_PATH`, `PORTAL_USERNAME`, `PORTAL_PASSWORD`, `SCRAPER_DAYS_AHEAD`, `SCRAPER_DAYS_BEHIND`, `SCRAPER_DEBUG_MODE`, `SCRAPER_SAVE_HTML_DEBUG`, `OUTPUT_DIR`). Instalar dependencias: `pip install -r requirements.txt`.
-
-**Ejecución:** `python scraper.py`, `python scraper_hybrid.py` o `python scraper_selenium.py` según el método que uses.
-
-**Utilidad de depuración (opcional):** `python debug_submissions.py` — revisa la detección del estado de entrega (submission status) con el scraper híbrido; requiere `.env` con credenciales (config.py lee desde .env) y **Google Chrome instalado** (Selenium). Si no tienes Chrome, usa el flujo v2 con Playwright.
-
 ### 📤 Salida
 
-Tanto el comando por defecto (`python -m lms_agent_scraper.cli run`) como los scripts legacy generan:
+El comando **`python -m lms_agent_scraper.cli run`** genera:
 
 1. **Reporte Markdown** en `reports/assignments_report_YYYYMMDD_HHMMSS.md`
-2. **Archivos de Debug** en `debug_html/` si está habilitado (`SCRAPER_DEBUG_MODE=true` en v2 o `SAVE_HTML_DEBUG` en legacy)
+2. **Archivos de Debug** en `debug_html/` si está habilitado (`SCRAPER_DEBUG_MODE=true` en `.env`)
 3. **Mensajes en consola** con el progreso y resultados
 
 ## 📊 Formato del Reporte
@@ -310,7 +288,7 @@ El reporte incluye:
 
 Si el login falla:
 
-1. **v2 y legacy:** verifica `PORTAL_BASE_URL`, `PORTAL_USERNAME` y `PORTAL_PASSWORD` en `.env` (config.py también lee desde .env).
+1. Verifica `PORTAL_BASE_URL`, `PORTAL_USERNAME` y `PORTAL_PASSWORD` en `.env`.
 2. Comprueba que la URL del portal sea correcta y revisa `debug_html/` si está habilitado.
 
 ### 📭 No se Encuentran Tareas
@@ -320,57 +298,12 @@ Si no se encuentran tareas:
 1. **Portal con JavaScript**: El portal podría usar JavaScript para cargar contenido dinámicamente
 2. **Estructura cambiada**: El portal podría haber cambiado su estructura HTML
 3. **Sin tareas**: Realmente no hay tareas en el período consultado
-4. **v2 / Unisimon**: Si usas el scraper v2 con Unisimon Aula Pregrado, pon `PORTAL_PROFILE=moodle_unisimon` en `.env`. Con `moodle_default` puede que no se detecten las tarjetas de curso. Para depurar: `SCRAPER_DEBUG_MODE=true` y revisar `debug_html/courses_page.html`.
-
-### 🔄 Migración a Selenium
-
-Si BeautifulSoup no es suficiente (contenido JavaScript), sigue estos pasos:
-
-#### 1. Instalar Selenium
-
-```bash
-pip install selenium
-```
-
-#### 2. Instalar Driver del Navegador
-
-**Para Chrome:**
-```bash
-# Descargar ChromeDriver desde: https://chromedriver.chromium.org/
-# O usar webdriver-manager:
-pip install webdriver-manager
-```
-
-#### 3. Crear `scraper_selenium.py`
-
-```python
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service
-
-class UnisimonSeleniumScraper:
-    def __init__(self):
-        service = Service(ChromeDriverManager().install())
-        self.driver = webdriver.Chrome(service=service)
-        self.driver.implicitly_wait(10)
-    
-    def login(self):
-        self.driver.get(LOGIN_URL)
-        # Implementar login con Selenium
-        # ...
-    
-    def get_assignments(self):
-        # Implementar extracción con Selenium
-        # ...
-```
+4. **Unisimon**: Si usas el scraper con Unisimon Aula Pregrado, pon `PORTAL_PROFILE=moodle_unisimon` en `.env`. Con `moodle_default` puede que no se detecten las tarjetas de curso. Para depurar: `SCRAPER_DEBUG_MODE=true` y revisar `debug_html/courses_page.html`.
 
 ## 📝 Notas Importantes
 
 - ⚠️ **Uso Responsable**: Este scraper es para uso personal únicamente
-- 🔒 **Seguridad**: Credenciales en `.env` (v2 y legacy; `config.py` lee desde `.env`). No versionar `.env`. Ver `.env.example` y `ENV_README.md`.
+- 🔒 **Seguridad**: Credenciales en `.env`. No versionar `.env`. Ver `.env.example` y `ENV_README.md`.
 - 📊 **Limitaciones**: Depende de la estructura HTML del portal
 - 🔄 **Mantenimiento**: Puede requerir actualizaciones si el portal cambia
 
@@ -381,7 +314,6 @@ Si encuentras problemas:
 1. Asegúrate de usar **`python -m lms_agent_scraper.cli run`** con `.env` configurado (véase [Inicio rápido](#-inicio-rápido)).
 2. Revisa los archivos de debug en `debug_html/` (con `SCRAPER_DEBUG_MODE=true` en `.env`).
 3. Verifica dependencias (`pip install -e .`, `playwright install chromium`) y credenciales en `.env`.
-4. Para portales con mucho JavaScript, el flujo v2 ya usa Playwright; los scripts legacy pueden usar Selenium.
 
 ---
 

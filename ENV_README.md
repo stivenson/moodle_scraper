@@ -16,17 +16,11 @@ Usa los valores por defecto de `.env` (perfil, URL, credenciales, días). No req
 unisimon_scraper/
 ├── venv/                          # Entorno virtual (crear con: python -m venv venv)
 ├── activate_env.bat               # Script de activación (Windows)
-├── .env.example                   # Plantilla de variables (v2 y legacy; copiar a .env)
-├── validate_skills.py             # Valida prompts LLM (SKILL.md)
-├── scraper.py                     # Scraper básico (legacy)
-├── scraper_hybrid.py              # Scraper híbrido (legacy)
-├── scraper_selenium.py            # Scraper con Selenium (legacy)
-├── config.py                      # Lee desde .env para scripts legacy (mismas variables que v2)
-├── utils.py                       # Utilidades legacy
-├── requirements.txt               # Dependencias legacy
-├── pyproject.toml                 # Paquete v2: pip install -e .
-├── profiles/                      # Perfiles YAML por portal (v2)
-├── src/lms_agent_scraper/         # LMS Agent Scraper v2 (CLI, MCP, workflow LangGraph)
+├── .env.example                   # Plantilla de variables (copiar a .env)
+├── validate_skills.py              # Valida prompts LLM (SKILL.md)
+├── pyproject.toml                 # Paquete: pip install -e .
+├── profiles/                      # Perfiles YAML por portal
+├── src/lms_agent_scraper/         # LMS Agent Scraper (CLI, MCP, workflow LangGraph)
 │   ├── cli.py                     # Comandos: run, profiles list/validate
 │   ├── agents/                    # login, course_discovery, analyzer
 │   ├── graph/                     # Workflow LangGraph (nodes, state)
@@ -63,17 +57,9 @@ deactivate
 
 ## 📦 Dependencias
 
-### Legacy (requirements.txt)
-
-- **requests**, **beautifulsoup4**, **lxml** - HTTP y parsing HTML
-- **selenium**, **webdriver-manager** - Automatización web (scraper_selenium, scraper_hybrid)
-- **spacy** - Procesamiento de lenguaje natural (opcional)
-
-### v2 – LMS Agent Scraper (pyproject.toml)
-
 Instalación: `pip install -e .` (desde la raíz del repo). Incluye LangGraph, LangChain, Playwright, langchain-ollama, pydantic-settings, Typer, MCP, etc. Ver [pyproject.toml](pyproject.toml).
 
-Para v2 además necesitas **Playwright** con Chromium:
+Además necesitas **Playwright** con Chromium:
 
 ```bash
 playwright install chromium
@@ -88,21 +74,16 @@ where python
 # Ver paquetes instalados
 pip list
 
-# Actualizar dependencias
-pip install -r requirements.txt --upgrade
+# Actualizar el paquete en modo editable
+pip install -e .
 
-# Instalar nueva dependencia
+# Instalar nueva dependencia (añadir al pyproject.toml si es del proyecto)
 pip install nombre_paquete
-
-# Generar requirements.txt actualizado
-pip freeze > requirements.txt
 ```
 
 ## 📊 Ejecutar el Scraper
 
 Una vez activado el entorno virtual:
-
-### v2 – LMS Agent Scraper (recomendado)
 
 **Comando por defecto (el más sencillo):**
 
@@ -121,27 +102,10 @@ python -m lms_agent_scraper.cli run
 
 Otros comandos opcionales: `python -m lms_agent_scraper.cli run --profile moodle_unisimon`, `profiles list`, `profiles validate moodle_unisimon`.
 
-### Legacy
+**Validar skills (prompts LLM en SKILL.md):**
 
 ```bash
-# Scraper híbrido
-python scraper_hybrid.py
-
-# Scraper básico con BeautifulSoup
-python scraper.py
-
-# Scraper con Selenium completo
-python scraper_selenium.py
-```
-
-### Otros
-
-```bash
-# Validar skills (prompts LLM en SKILL.md)
 python validate_skills.py
-
-# Depuración opcional del estado de entregas (legacy, scraper híbrido)
-python debug_submissions.py
 ```
 
 ## 🐛 Solución de Problemas
@@ -152,18 +116,18 @@ python debug_submissions.py
 
 ### Error: "ModuleNotFoundError"
 - Activa el entorno virtual: `venv\Scripts\activate`
-- Reinstala las dependencias: `pip install -r requirements.txt`
+- Reinstala el paquete: `pip install -e .`
 
 ### Error de login en el scraper
-- **v2 y legacy:** configura `PORTAL_BASE_URL`, `PORTAL_USERNAME` y `PORTAL_PASSWORD` en `.env`. `config.py` (legacy) también lee desde `.env`.
+- Configura `PORTAL_BASE_URL`, `PORTAL_USERNAME` y `PORTAL_PASSWORD` en `.env`.
 - Asegúrate de tener conexión a internet; el portal puede estar temporalmente fuera de servicio.
 
 ## 📝 Notas Importantes
 
 - **Comando recomendado:** `python -m lms_agent_scraper.cli run` (usa valores de `.env`).
-- **Python 3.10+** requerido (v2 y recomendado para legacy).
+- **Python 3.10+** requerido.
 - **Siempre activa el entorno virtual** antes de ejecutar el scraper.
-- **v2:** las credenciales y la URL del portal van en `.env` (no versionado); ver `.env.example`.
+- Las credenciales y la URL del portal van en `.env` (no versionado); ver `.env.example`.
 - Los reportes se guardan en `reports/`; los archivos de debug (v2) en `debug_html/` cuando `SCRAPER_DEBUG_MODE=true`.
 - El entorno virtual está aislado del sistema Python global.
 

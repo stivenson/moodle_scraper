@@ -5,7 +5,7 @@ echo.
 echo Entorno virtual activado exitosamente!
 echo.
 echo Para ejecutar el scraper:
-echo   python scraper_hybrid.py
+echo   python -m lms_agent_scraper.cli run
 echo.
 echo Para desactivar el entorno:
 echo   deactivate
