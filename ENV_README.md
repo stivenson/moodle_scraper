@@ -13,7 +13,7 @@ Usa los valores por defecto de `.env` (perfil, URL, credenciales, días). No req
 ## 📁 Estructura del Proyecto
 
 ```
-unisimon_scraper/
+moodle_scraper/
 ├── venv/                          # Entorno virtual (crear con: python -m venv venv)
 ├── activate_env.bat               # Script de activación (Windows)
 ├── .env.example                   # Plantilla de variables (copiar a .env)

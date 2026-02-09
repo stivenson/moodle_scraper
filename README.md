@@ -240,7 +240,7 @@ Tabla por categoría de lo usado en la implementación del repo:
 ## 📁 Estructura del Proyecto
 
 ```
-unisimon_scraper/
+moodle_scraper/
 ├── pyproject.toml          # Paquete instalable: pip install -e .
 ├── .env.example            # Plantilla de variables para v2 (copiar a .env)
 ├── profiles/               # Perfiles YAML por portal (v2)
