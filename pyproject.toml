@@ -1,7 +1,7 @@
 [project]
 name = "lms-agent-scraper"
 version = "2.0.0"
-description = "Framework de agentes para scraping de portales LMS"
+description = "Sistema de scrapers con IA para portales Moodle (LMS): cursos, tareas y reportes."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

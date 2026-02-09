@@ -1,4 +1,4 @@
-# 🐍 Entorno Virtual - Unisimon Scraper
+# 🐍 Entorno virtual — LMS Agent Scraper (Moodle)
 
 **Requisito:** Python **3.10+**.
 
@@ -94,13 +94,13 @@ pip install -e .
 # 2. Instalar navegador para Playwright (solo la primera vez)
 playwright install chromium
 
-# 3. Configurar .env (copiar .env.example a .env; definir PORTAL_PROFILE, PORTAL_BASE_URL, PORTAL_USERNAME, PORTAL_PASSWORD)
+# 3. Configurar .env (copiar .env.example a .env; definir PORTAL_PROFILE, PORTAL_BASE_URL, PORTAL_USERNAME, PORTAL_PASSWORD). Los valores de ejemplo moodle_unisimon y aulapregrado.unisimon.edu.co corresponden a la Universidad Simón Bolívar (Colombia).
 
 # 4. Ejecutar (usa valores por defecto del .env)
 python -m lms_agent_scraper.cli run
 ```
 
-Otros comandos opcionales: `python -m lms_agent_scraper.cli run --profile moodle_unisimon`, `profiles list`, `profiles validate moodle_unisimon`.
+Otros comandos opcionales: `python -m lms_agent_scraper.cli run --profile moodle_unisimon` (perfil de ejemplo, Unisimon), `profiles list`, `profiles validate moodle_unisimon`.
 
 **Validar skills (prompts LLM en SKILL.md):**
 
@@ -133,4 +133,4 @@ python validate_skills.py
 
 ---
 
-*Entorno virtual para el proyecto Unisimon Portal Scraper / LMS Agent Scraper*
+*Entorno virtual para el sistema de scrapers IA para Moodle (LMS Agent Scraper)*

@@ -1,4 +1,5 @@
-# Perfil específico para Unisimon Aula Pregrado (Moodle)
+# Perfil de ejemplo por defecto para la Universidad Simón Bolívar (Colombia), Aula Extendida
+# (aulapregrado.unisimon.edu.co). Mantener name, description y title_template para ese ejemplo.
 metadata:
   name: "Moodle Unisimon"
   version: "1.0.0"

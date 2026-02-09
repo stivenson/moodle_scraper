@@ -8,7 +8,7 @@ from pathlib import Path
 
 import typer
 
-app = typer.Typer(name="lms-scraper", help="Framework de agentes para scraping de portales LMS")
+app = typer.Typer(name="lms-scraper", help="Scrapers IA para Moodle / LMS")
 
 
 def _configure_logging():

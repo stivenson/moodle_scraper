@@ -14,9 +14,9 @@ from lms_agent_scraper.graph.workflow import run_workflow
 from lms_agent_scraper.tools.report_tools import filter_by_date
 
 MCP_INSTRUCTIONS = """
-Este servidor MCP da acceso al portal LMS de la Universidad Simón Bolívar (Unisimon), Aula Pregrado.
-Usa las herramientas para consultar tareas pendientes, cursos, entregas y plazos del estudiante en ese portal.
-Contexto: Unisimon, Universidad Simón Bolívar, Colombia.
+Este servidor MCP da acceso a portales LMS Moodle: cursos, tareas pendientes, entregas y plazos del estudiante.
+La configuración de ejemplo puede usar el perfil moodle_unisimon (Universidad Simón Bolívar, Colombia, Aula Extendida);
+puedes configurar otro perfil y URL para cualquier Moodle.
 """
 
 mcp = FastMCP(

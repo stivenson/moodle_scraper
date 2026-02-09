@@ -1,8 +1,8 @@
-# 📚 Unisimon Portal Scraper / LMS Agent Scraper
+# 📚 LMS Agent Scraper — Sistema de scrapers IA para Moodle
 
 <div align="center">
 
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white) ![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-FF6B6B?style=for-the-badge&logo=graphql&logoColor=white) ![LangChain](https://img.shields.io/badge/LangChain-0.3+-1C3A3E?style=for-the-badge&logo=chainlink&logoColor=white) ![Playwright](https://img.shields.io/badge/Playwright-1.40+-45BA48?style=for-the-badge&logo=playwright&logoColor=white) ![Ollama](https://img.shields.io/badge/Ollama-LLM%20local-000000?style=for-the-badge) ![MCP](https://img.shields.io/badge/MCP-Server-8B5CF6?style=for-the-badge) ![Moodle](https://img.shields.io/badge/Moodle-Aula%20Pregrado-009C3B?style=for-the-badge&logo=moodle&logoColor=white) ![Status](https://img.shields.io/badge/Status-Active-success?style=for-the-badge)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white) ![LangGraph](https://img.shields.io/badge/LangGraph-0.2+-FF6B6B?style=for-the-badge&logo=graphql&logoColor=white) ![LangChain](https://img.shields.io/badge/LangChain-0.3+-1C3A3E?style=for-the-badge&logo=chainlink&logoColor=white) ![Playwright](https://img.shields.io/badge/Playwright-1.40+-45BA48?style=for-the-badge&logo=playwright&logoColor=white) ![Ollama](https://img.shields.io/badge/Ollama-LLM%20local-000000?style=for-the-badge) ![MCP](https://img.shields.io/badge/MCP-Server-8B5CF6?style=for-the-badge) ![Moodle](https://img.shields.io/badge/Moodle-LMS-009C3B?style=for-the-badge&logo=moodle&logoColor=white) ![Status](https://img.shields.io/badge/Status-Active-success?style=for-the-badge)
 
 </div>
 
@@ -10,7 +10,9 @@
 
 <div align="center">
 
-**Extrae cursos y tareas próximas a entregar del Aula Extendida de la Universidad Simón Bolívar (Colombia).** Pensado como plantilla reutilizable para Aulas Extendidas (Moodle/LMS) de otras universidades: perfiles YAML, workflow LangGraph y servidor MCP.
+**Sistema de scrapers con IA para portales Moodle:** extrae cursos, tareas próximas a entregar y genera reportes. Usa perfiles YAML, workflow LangGraph y servidor MCP para cualquier instalación Moodle.
+
+*Los valores y el perfil de ejemplo (moodle_unisimon) referencian la Universidad Simón Bolívar (Colombia), ya que su Aula Extendida está en Moodle; puedes usar otros perfiles y URLs para cualquier Moodle.*
 
 </div>
 
@@ -20,7 +22,7 @@
 
 ### 📍 Flujo del scraper (mapa)
 
-El siguiente diagrama ilustra la interacción entre usuario, agentes y **Aula Extendida Unisimón**: se obtienen los cursos y las tareas próximas a entregar (flujo v2: auth → discovery → extracción → reporte).
+El siguiente diagrama ilustra la interacción entre usuario, agentes y un **portal Moodle**: se obtienen los cursos y las tareas próximas a entregar (flujo v2: auth → discovery → extracción → reporte).
 
 ```mermaid
 graph TD
@@ -29,7 +31,7 @@ graph TD
     classDef system fill:#e0e0e0,stroke:#757575,stroke-width:2px,color:#424242
 
     User((Usuario / CLI)):::user
-    Portal["Aula Extendida Unisimón"]:::system
+    Portal["Portal Moodle"]:::system
 
     subgraph ScraperCore
         direction TB
@@ -65,13 +67,13 @@ pip install -e .
 playwright install chromium
 ```
 
-Copia `.env.example` a `.env` y configura al menos: `PORTAL_PROFILE` (ej. `moodle_unisimon` para Aula Extendida Unisimón), `PORTAL_BASE_URL`, `PORTAL_USERNAME`, `PORTAL_PASSWORD`. Luego:
+Copia `.env.example` a `.env` y configura al menos: `PORTAL_PROFILE` (perfil YAML, ej. `moodle_unisimon` o `moodle_default`), `PORTAL_BASE_URL`, `PORTAL_USERNAME`, `PORTAL_PASSWORD`. Luego:
 
 ```bash
 python -m lms_agent_scraper.cli run
 ```
 
-**Valores por defecto:** se usa el perfil indicado en `PORTAL_PROFILE`, los días en `SCRAPER_DAYS_AHEAD` / `SCRAPER_DAYS_BEHIND`, y el reporte se escribe en `reports/`. Para Unisimon Aula Pregrado conviene `PORTAL_PROFILE=moodle_unisimon`. Sin argumentos adicionales, este comando es suficiente.
+**Valores por defecto:** se usa el perfil indicado en `PORTAL_PROFILE`, los días en `SCRAPER_DAYS_AHEAD` / `SCRAPER_DAYS_BEHIND`, y el reporte se escribe en `reports/`. *El perfil moodle_unisimon y las URLs de ejemplo corresponden a la Universidad Simón Bolívar (Colombia), Aula Extendida.* Sin argumentos adicionales, este comando es suficiente.
 
 ---
 
@@ -220,8 +222,8 @@ Tabla por categoría de lo usado en la implementación del repo:
 </tr>
 <tr>
 <td style="background-color:#fce4ec;">Portal objetivo</td>
-<td style="background-color:#fce4ec;">Moodle (Aula Pregrado)</td>
-<td style="background-color:#fce4ec;">Unisimon: aulapregrado.unisimon.edu.co; perfil moodle_unisimon.</td>
+<td style="background-color:#fce4ec;">Moodle (genérico)</td>
+<td style="background-color:#fce4ec;">Cualquier Moodle; ejemplos: moodle_unisimon (Universidad Simón Bolívar, Colombia).</td>
 </tr>
 </tbody>
 </table>
@@ -242,7 +244,7 @@ unisimon_scraper/
 ├── pyproject.toml          # Paquete instalable: pip install -e .
 ├── .env.example            # Plantilla de variables para v2 (copiar a .env)
 ├── profiles/               # Perfiles YAML por portal (v2)
-│   ├── moodle_unisimon.yml
+│   ├── moodle_unisimon.yml # Perfil de ejemplo (Unisimon, Colombia)
 │   ├── moodle_default.yml
 │   └── ...
 ├── src/lms_agent_scraper/  # LMS Agent Scraper (v2)
@@ -298,7 +300,7 @@ Si no se encuentran tareas:
 1. **Portal con JavaScript**: El portal podría usar JavaScript para cargar contenido dinámicamente
 2. **Estructura cambiada**: El portal podría haber cambiado su estructura HTML
 3. **Sin tareas**: Realmente no hay tareas en el período consultado
-4. **Unisimon**: Si usas el scraper con Unisimon Aula Pregrado, pon `PORTAL_PROFILE=moodle_unisimon` en `.env`. Con `moodle_default` puede que no se detecten las tarjetas de curso. Para depurar: `SCRAPER_DEBUG_MODE=true` y revisar `debug_html/courses_page.html`.
+4. **Perfil de ejemplo (moodle_unisimon)**: Ese perfil está ajustado para la Universidad Simón Bolívar (Colombia), Aula Extendida. Si usas otro Moodle, crea o usa otro perfil en `profiles/`. Con `moodle_default` puede que no se detecten las tarjetas en algunos portales. Para depurar: `SCRAPER_DEBUG_MODE=true` y revisar `debug_html/courses_page.html`.
 
 ## 📝 Notas Importantes
 
@@ -330,12 +332,12 @@ El comando por defecto **`python -m lms_agent_scraper.cli run`** es la forma má
 ### ⚙️ Configuración (v2)
 
 1. Copiar `.env.example` a `.env` y configurar:
-   - `PORTAL_PROFILE` (ej: `moodle_unisimon` o `moodle_default`). **Para Unisimon Aula Pregrado (aulapregrado.unisimon.edu.co) usar `moodle_unisimon`.**
+   - `PORTAL_PROFILE`: perfil YAML (valores iniciales de ejemplo: `moodle_unisimon` para Universidad Simón Bolívar, Colombia, Aula Extendida; o `moodle_default` como plantilla genérica). Para otros portales Moodle, usar o crear el perfil correspondiente.
    - `PORTAL_BASE_URL`, `PORTAL_USERNAME`, `PORTAL_PASSWORD`
    - Opcional: `SCRAPER_DAYS_AHEAD`, `SCRAPER_DAYS_BEHIND`, `SCRAPER_MAX_COURSES`, `SCRAPER_OUTPUT_DIR`, `SCRAPER_DEBUG_MODE` (guardar HTML en `debug_html/` y más logs)
    - Opcional (Ollama): `OLLAMA_BASE_URL`, `OLLAMA_MODEL_NAME`, `OLLAMA_TEMPERATURE`, `OLLAMA_NUM_CTX`, `OLLAMA_NUM_PREDICT` — usado para extraer la lista de cursos desde el HTML, clasificar páginas como “curso” en el discovery por contenido y (en el futuro) sugerir selectores. Requiere Ollama en ejecución y un modelo (p. ej. `ollama run glm-4.7-flash`). Ver [ollama.com/library/glm-4.7-flash](https://ollama.com/library/glm-4.7-flash). Si no está disponible, la extracción se hace con BeautifulSoup y Playwright.
 
-2. 📁 Perfiles YAML en `profiles/` definen selectores, auth y opciones por portal (Moodle, Canvas, etc.). El perfil `moodle_unisimon` está ajustado para Unisimon Aula Pregrado e incluye `course_discovery` para el fallback por contenido.
+2. 📁 Perfiles YAML en `profiles/` definen selectores, auth y opciones por portal (Moodle, Canvas, etc.). El perfil `moodle_unisimon` es el de ejemplo por defecto (Universidad Simón Bolívar, Colombia, Aula Extendida) e incluye `course_discovery` para el fallback por contenido.
 
 ### 🔍 Detección de cursos (v2)
 
@@ -389,11 +391,11 @@ Usa el perfil y el resto de opciones definidos en `.env`. No hace falta pasar ar
 
 ```bash
 # Perfil explícito por línea de comandos (sobrescribe PORTAL_PROFILE del .env)
-python -m lms_agent_scraper.cli run --profile moodle_unisimon
+python -m lms_agent_scraper.cli run --profile moodle_unisimon   # perfil de ejemplo, Unisimon
 
 # Listar y validar perfiles
 python -m lms_agent_scraper.cli profiles list
-python -m lms_agent_scraper.cli profiles validate moodle_unisimon
+python -m lms_agent_scraper.cli profiles validate moodle_unisimon   # perfil de ejemplo, Unisimon
 
 # Modo debug: SCRAPER_DEBUG_MODE=true en .env (guarda HTML en debug_html/ y más logs)
 
@@ -422,7 +424,7 @@ En la configuración MCP del cliente:
 }
 ```
 
-🛠️ Herramientas expuestas: `get_pending_assignments`, `get_submitted_assignments`, `get_courses`, `generate_report`, `check_deadlines`, `list_profiles`. El servidor envía `instructions` al cliente indicando que se trata del portal LMS de la **Universidad Simón Bolívar (Unisimon), Aula Pregrado**, para que el agente tenga ese contexto.
+🛠️ Herramientas expuestas: `get_pending_assignments`, `get_submitted_assignments`, `get_courses`, `generate_report`, `check_deadlines`, `list_profiles`. El servidor da acceso a portales LMS Moodle; en la configuración de ejemplo se usa el perfil `moodle_unisimon` (Universidad Simón Bolívar, Colombia). El cliente recibe `instructions` con ese contexto cuando se usa dicho perfil.
 
 ### 💻 Desarrollo con Cursor
 

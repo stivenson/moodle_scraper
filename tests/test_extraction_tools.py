@@ -12,7 +12,7 @@ PROFILES_DIR = Path(__file__).resolve().parent.parent / "profiles"
 
 
 def _moodle_profile() -> dict:
-    """Carga perfil Moodle Unisimon como dict para los selectores."""
+    """Perfil de ejemplo moodle_unisimon (Universidad Simón Bolívar, Colombia) como dict para selectores."""
     loader = ProfileLoader(PROFILES_DIR)
     profile = loader.load("moodle_unisimon")
     return profile.model_dump()
@@ -64,6 +64,7 @@ def test_extract_assignments_from_html_detects_assignment_with_due_date(moodle_p
     Dado HTML de una página de curso Moodle con una tarea (mod/assign) y fecha de entrega,
     se detecta al menos una tarea con título, url, type y due_date correctos.
     """
+    # base_url de ejemplo (Unisimon).
     base_url = "https://aulapregrado.unisimon.edu.co"
     course_name = "Matemáticas I"
     course_url = f"{base_url}/course/view.php?id=1"
@@ -93,6 +94,7 @@ def test_extract_assignments_from_html_detects_quiz_with_due_date(moodle_profile
     """
     En el mismo HTML hay un quiz con fecha; debe detectarse como tipo quiz.
     """
+    # base_url de ejemplo (Unisimon).
     base_url = "https://aulapregrado.unisimon.edu.co"
     result = extract_assignments_from_html(
         html=MOODLE_COURSE_PAGE_WITH_ASSIGNMENT,

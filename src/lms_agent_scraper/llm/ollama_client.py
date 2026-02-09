@@ -199,14 +199,15 @@ Responde ÚNICAMENTE con JSON: {{"assignment_selector": "...", "date_selector": 
             base_url=base_url,
         )
         if prompt is None:
-            prompt = f"""El siguiente HTML corresponde a la página "Mis cursos" de un campus Moodle (Aula Pregrado).
+            # Ejemplo de URL en el prompt: formato típico Moodle (ejemplo Unisimon: aulapregrado.unisimon.edu.co).
+            prompt = f"""El siguiente HTML corresponde a la página "Mis cursos" de un campus Moodle.
 Tu tarea: extraer TODOS los cursos listados. Para cada curso necesito:
 1) El nombre completo del curso (tal como aparece en pantalla).
 2) La URL del curso. Debe contener "course/view.php" y el parámetro "id" (ej: course/view.php?id=3418).
    Si la URL es relativa (empieza con / o sin dominio), considérala relativa al sitio.
 
 Responde ÚNICAMENTE con un JSON válido: un array de objetos, cada uno con exactamente dos claves "name" y "url".
-Ejemplo: [{{"name": "CUC ALGEBRA LINEAL - 2795 - T01 - 2026 - 1", "url": "https://aulapregrado.unisimon.edu.co/course/view.php?id=3418"}}]
+Ejemplo: [{{"name": "Nombre del curso", "url": "https://aulapregrado.unisimon.edu.co/course/view.php?id=3418"}}]
 No incluyas explicaciones ni markdown. Solo el array JSON.
 
 HTML:
@@ -238,7 +239,7 @@ HTML:
         """
         Usa el LLM para extraer la lista de cursos desde el HTML de la página "Mis cursos" (Moodle).
         Útil cuando los selectores y BeautifulSoup no encuentran tarjetas.
-        base_url: para normalizar URLs relativas (ej. https://aulapregrado.unisimon.edu.co).
+        base_url: para normalizar URLs relativas (ej. https://moodle.ejemplo.edu; ejemplo Unisimon: aulapregrado.unisimon.edu.co).
         Retorna lista de dicts con "name" y "url".
         """
         if not self.available or not html:

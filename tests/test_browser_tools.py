@@ -8,6 +8,7 @@ from lms_agent_scraper.tools.browser_tools import (
 )
 
 
+# URL de ejemplo (perfil moodle_unisimon, Universidad Simón Bolívar, Colombia).
 BASE = "https://aulapregrado.unisimon.edu.co"
 
 
