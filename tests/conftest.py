@@ -1,4 +1,5 @@
 """Pytest fixtures and path setup."""
+
 import sys
 from pathlib import Path
 
@@ -14,4 +15,6 @@ PROFILES_DIR = root / "profiles"
 
 def pytest_configure(config):
     """Registrar marcadores si hace falta."""
-    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )

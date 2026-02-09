@@ -1,5 +1,4 @@
 """Tests para detección de cursos por segmento de URL (browser_tools)."""
-import pytest
 
 from lms_agent_scraper.tools.browser_tools import (
     DEFAULT_COURSE_LINK_SEGMENTS,
@@ -16,58 +15,82 @@ class TestIsCourseUrlBySegment:
     """Tests para _is_course_url_by_segment."""
 
     def test_course_in_path_accepts(self):
-        assert _is_course_url_by_segment(
-            "https://aulapregrado.unisimon.edu.co/course/view.php?id=3417",
-            BASE,
-            ["course", "courses", "cursos"],
-        ) is True
+        assert (
+            _is_course_url_by_segment(
+                "https://aulapregrado.unisimon.edu.co/course/view.php?id=3417",
+                BASE,
+                ["course", "courses", "cursos"],
+            )
+            is True
+        )
 
     def test_courses_in_path_accepts(self):
-        assert _is_course_url_by_segment(
-            "https://example.edu/courses/123",
-            "https://example.edu",
-            ["course", "courses", "cursos"],
-        ) is True
+        assert (
+            _is_course_url_by_segment(
+                "https://example.edu/courses/123",
+                "https://example.edu",
+                ["course", "courses", "cursos"],
+            )
+            is True
+        )
 
     def test_cursos_in_path_accepts(self):
-        assert _is_course_url_by_segment(
-            "/cursos/ver?id=1",
-            BASE,
-            ["course", "courses", "cursos"],
-        ) is True
+        assert (
+            _is_course_url_by_segment(
+                "/cursos/ver?id=1",
+                BASE,
+                ["course", "courses", "cursos"],
+            )
+            is True
+        )
 
     def test_case_insensitive(self):
-        assert _is_course_url_by_segment(
-            "https://example.edu/Cursos/view",
-            "https://example.edu",
-            ["course", "cursos"],
-        ) is True
-        assert _is_course_url_by_segment(
-            "https://example.edu/COURSE/1",
-            "https://example.edu",
-            ["course"],
-        ) is True
+        assert (
+            _is_course_url_by_segment(
+                "https://example.edu/Cursos/view",
+                "https://example.edu",
+                ["course", "cursos"],
+            )
+            is True
+        )
+        assert (
+            _is_course_url_by_segment(
+                "https://example.edu/COURSE/1",
+                "https://example.edu",
+                ["course"],
+            )
+            is True
+        )
 
     def test_no_keyword_in_path_rejects(self):
-        assert _is_course_url_by_segment(
-            "https://example.edu/mod/assign/view.php?id=1",
-            "https://example.edu",
-            ["course", "courses", "cursos"],
-        ) is False
+        assert (
+            _is_course_url_by_segment(
+                "https://example.edu/mod/assign/view.php?id=1",
+                "https://example.edu",
+                ["course", "courses", "cursos"],
+            )
+            is False
+        )
 
     def test_keyword_only_in_query_rejects(self):
-        assert _is_course_url_by_segment(
-            "https://example.edu/view.php?course=1",
-            "https://example.edu",
-            ["course"],
-        ) is False
+        assert (
+            _is_course_url_by_segment(
+                "https://example.edu/view.php?course=1",
+                "https://example.edu",
+                ["course"],
+            )
+            is False
+        )
 
     def test_relative_url_with_course_accepts(self):
-        assert _is_course_url_by_segment(
-            "/course/view.php?id=3418",
-            BASE,
-            ["course", "courses", "cursos"],
-        ) is True
+        assert (
+            _is_course_url_by_segment(
+                "/course/view.php?id=3418",
+                BASE,
+                ["course", "courses", "cursos"],
+            )
+            is True
+        )
 
     def test_empty_keywords_rejects(self):
         assert _is_course_url_by_segment("/course/view.php", BASE, []) is False

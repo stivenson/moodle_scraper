@@ -3,6 +3,7 @@ Cliente Ollama para GLM-4.7-Flash: análisis de HTML, interpretación de fechas,
 extracción de cursos desde la página "Mis cursos" (fallback con LLM).
 Soporta prompts desde SKILL.md (skills_dir) con fallback a prompts hardcodeados.
 """
+
 import json
 import logging
 import re
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 try:
     from langchain_ollama import ChatOllama
     from langchain_core.messages import HumanMessage
+
     OLLAMA_AVAILABLE = True
 except ImportError:
     OLLAMA_AVAILABLE = False
@@ -68,6 +70,18 @@ class LocalLLMClient:
         except Exception:
             return ""
 
+    def _strip_markdown_and_parse_json(self, out: str) -> Optional[Any]:
+        """Quita bloques markdown del texto y parsea JSON. Retorna None si falla."""
+        if not out:
+            return None
+        out = re.sub(r"^```\w*\n?", "", out)
+        out = re.sub(r"\n?```\s*$", "", out)
+        out = out.strip()
+        try:
+            return json.loads(out)
+        except json.JSONDecodeError:
+            return None
+
     def _get_skill_loader(self):
         """Lazy init del SkillLoader si skills_dir existe."""
         if self._skill_loader is not None:
@@ -76,6 +90,7 @@ class LocalLLMClient:
             return None
         try:
             from lms_agent_scraper.core.skill_loader import SkillLoader
+
             self._skill_loader = SkillLoader(self._skills_dir)
             return self._skill_loader
         except Exception as e:
@@ -117,15 +132,8 @@ HTML:
 {snippet}
 """
         out = self._invoke(prompt)
-        if not out:
-            return {}
-        # Limpiar posible markdown
-        out = re.sub(r"^```\w*\n?", "", out)
-        out = re.sub(r"\n?```\s*$", "", out)
-        try:
-            return json.loads(out)
-        except json.JSONDecodeError:
-            return {}
+        parsed = self._strip_markdown_and_parse_json(out)
+        return parsed if isinstance(parsed, dict) else {}
 
     def interpret_date(self, date_text: str, context: str = "") -> str:
         """
@@ -140,7 +148,7 @@ HTML:
         )
         if prompt is None:
             prompt = f"""Fecha encontrada: "{date_text}"
-Contexto: {context[:500] if context else 'N/A'}
+Contexto: {context[:500] if context else "N/A"}
 
 Convierte a formato ISO (YYYY-MM-DD). Responde SOLO con la fecha en formato ISO, nada más."""
         out = self._invoke(prompt)
@@ -150,7 +158,9 @@ Convierte a formato ISO (YYYY-MM-DD). Responde SOLO con la fecha en formato ISO,
         m = re.search(r"\d{4}-\d{2}-\d{2}", out)
         return m.group(0) if m else ""
 
-    def suggest_selectors_on_error(self, error_message: str, html_snippet: str = "") -> Dict[str, str]:
+    def suggest_selectors_on_error(
+        self, error_message: str, html_snippet: str = ""
+    ) -> Dict[str, str]:
         """
         Dado un mensaje de error de scraping y opcionalmente un fragmento HTML,
         sugiere nuevos selectores para reintentar.
@@ -164,32 +174,22 @@ Convierte a formato ISO (YYYY-MM-DD). Responde SOLO con la fecha en formato ISO,
         )
         if prompt is None:
             prompt = f"""Error durante el scraping: {error_message}
-{f'Fragmento HTML: {html_snippet[:3000]}' if html_snippet else ''}
+{f"Fragmento HTML: {html_snippet[:3000]}" if html_snippet else ""}
 
 Sugiere selectores CSS alternativos para encontrar enlaces a tareas/assignments en un LMS tipo Moodle.
 Responde ÚNICAMENTE con JSON: {{"assignment_selector": "...", "date_selector": "..."}}
 """
         out = self._invoke(prompt)
-        out = re.sub(r"^```\w*\n?", "", out)
-        out = re.sub(r"\n?```\s*$", "", out)
-        try:
-            return json.loads(out)
-        except json.JSONDecodeError:
-            return {}
+        parsed = self._strip_markdown_and_parse_json(out)
+        return parsed if isinstance(parsed, dict) else {}
 
-    def extract_courses_from_html(
+    def _run_course_extractor(
         self, html: str, base_url: str, max_chars: int = 18000
     ) -> List[Dict[str, str]]:
         """
-        Usa el LLM para extraer la lista de cursos desde el HTML de la página "Mis cursos" (Moodle).
-        Útil cuando los selectores y BeautifulSoup no encuentran tarjetas.
-        base_url: para normalizar URLs relativas (ej. https://aulapregrado.unisimon.edu.co).
-        Retorna lista de dicts con "name" y "url".
+        Dominio: extracción de cursos desde HTML "Mis cursos". Construye prompt, invoca LLM y parsea.
         """
-        if not self.available or not html:
-            return []
         base_url = base_url.rstrip("/")
-        # Reducir HTML: quitar scripts y estilos para meter más contenido útil en el contexto
         snippet = re.sub(r"<script[^>]*>[\s\S]*?</script>", "", html, flags=re.IGNORECASE)
         snippet = re.sub(r"<style[^>]*>[\s\S]*?</style>", "", snippet, flags=re.IGNORECASE)
         snippet = snippet[:max_chars] if len(snippet) > max_chars else snippet
@@ -213,15 +213,7 @@ HTML:
 {snippet}
 """
         out = self._invoke(prompt)
-        if not out:
-            return []
-        out = re.sub(r"^```\w*\n?", "", out)
-        out = re.sub(r"\n?```\s*$", "", out)
-        out = out.strip()
-        try:
-            raw = json.loads(out)
-        except json.JSONDecodeError:
-            return []
+        raw = self._strip_markdown_and_parse_json(out)
         if not isinstance(raw, list):
             return []
         result: List[Dict[str, str]] = []
@@ -240,17 +232,25 @@ HTML:
             result.append({"url": url, "name": name or "Sin nombre"})
         return result
 
-    def classify_page_as_course(
+    def extract_courses_from_html(
+        self, html: str, base_url: str, max_chars: int = 18000
+    ) -> List[Dict[str, str]]:
+        """
+        Usa el LLM para extraer la lista de cursos desde el HTML de la página "Mis cursos" (Moodle).
+        Útil cuando los selectores y BeautifulSoup no encuentran tarjetas.
+        base_url: para normalizar URLs relativas (ej. https://aulapregrado.unisimon.edu.co).
+        Retorna lista de dicts con "name" y "url".
+        """
+        if not self.available or not html:
+            return []
+        return self._run_course_extractor(html, base_url, max_chars=max_chars)
+
+    def _run_page_classifier(
         self, html: str, url: str = "", max_chars: int = 8000
     ) -> Dict[str, Any]:
         """
-        Clasifica si el HTML corresponde a una página de curso en un LMS tipo Moodle.
-        Busca señales: título del curso, secciones/módulos, enlaces a actividades (assign, quiz, forum).
-        Retorna {"is_course": bool, "course_name": str}. course_name vacío si no es curso.
+        Dominio: clasificación de página como curso. Construye prompt, invoca LLM y parsea.
         """
-        default = {"is_course": False, "course_name": ""}
-        if not self.available or not html:
-            return default
         snippet = re.sub(r"<script[^>]*>[\s\S]*?</script>", "", html, flags=re.IGNORECASE)
         snippet = re.sub(r"<style[^>]*>[\s\S]*?</style>", "", snippet, flags=re.IGNORECASE)
         snippet = snippet[:max_chars] if len(snippet) > max_chars else snippet
@@ -280,20 +280,25 @@ HTML:
 {snippet}
 """
         out = self._invoke(prompt)
-        if not out:
-            return default
-        out = re.sub(r"^```\w*\n?", "", out)
-        out = re.sub(r"\n?```\s*$", "", out)
-        out = out.strip()
-        try:
-            data = json.loads(out)
-        except json.JSONDecodeError:
-            return default
+        data = self._strip_markdown_and_parse_json(out)
         if not isinstance(data, dict):
-            return default
+            return {"is_course": False, "course_name": ""}
         is_course = bool(data.get("is_course", False))
         course_name = (data.get("course_name") or "").strip()
         return {"is_course": is_course, "course_name": course_name}
+
+    def classify_page_as_course(
+        self, html: str, url: str = "", max_chars: int = 8000
+    ) -> Dict[str, Any]:
+        """
+        Clasifica si el HTML corresponde a una página de curso en un LMS tipo Moodle.
+        Busca señales: título del curso, secciones/módulos, enlaces a actividades (assign, quiz, forum).
+        Retorna {"is_course": bool, "course_name": str}. course_name vacío si no es curso.
+        """
+        default = {"is_course": False, "course_name": ""}
+        if not self.available or not html:
+            return default
+        return self._run_page_classifier(html, url=url, max_chars=max_chars)
 
     def extract_assignments_from_course_html(
         self,
@@ -338,15 +343,7 @@ HTML:
 {snippet}
 """
         out = self._invoke(prompt)
-        if not out:
-            return []
-        out = re.sub(r"^```\w*\n?", "", out)
-        out = re.sub(r"\n?```\s*$", "", out)
-        out = out.strip()
-        try:
-            raw = json.loads(out)
-        except json.JSONDecodeError:
-            return []
+        raw = self._strip_markdown_and_parse_json(out)
         if not isinstance(raw, list):
             return []
         result: List[Dict[str, Any]] = []
@@ -359,7 +356,13 @@ HTML:
             if not title:
                 continue
             url = (item.get("url") or "").strip()
-            if not url or ("mod/" not in url and "assign" not in url and "quiz" not in url and "forum" not in url and "workshop" not in url):
+            if not url or (
+                "mod/" not in url
+                and "assign" not in url
+                and "quiz" not in url
+                and "forum" not in url
+                and "workshop" not in url
+            ):
                 continue
             url = urljoin(base_url + "/", url)
             if url in seen_urls:
@@ -368,14 +371,16 @@ HTML:
             raw_type = (item.get("type") or "assignment").strip().lower()
             activity_type = raw_type if raw_type in valid_types else "assignment"
             due_date_str = (item.get("due_date") or "").strip()
-            result.append({
-                "title": title,
-                "due_date": due_date_str,
-                "course": course_name or "Sin nombre",
-                "type": activity_type,
-                "url": url,
-                "section": "Main",
-                "submission_status": {"submitted": False, "status_text": "No entregada"},
-                "attached_files": [],
-            })
+            result.append(
+                {
+                    "title": title,
+                    "due_date": due_date_str,
+                    "course": course_name or "Sin nombre",
+                    "type": activity_type,
+                    "url": url,
+                    "section": "Main",
+                    "submission_status": {"submitted": False, "status_text": "No entregada"},
+                    "attached_files": [],
+                }
+            )
         return result

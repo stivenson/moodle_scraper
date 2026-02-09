@@ -1,6 +1,7 @@
 """
 Generación de reportes en Markdown (y opcionalmente JSON).
 """
+
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -58,7 +59,8 @@ def count_tasks_in_period(
     due_today = [a for a in filtered if a.get("status") == "DUE_TODAY"]
     upcoming = [a for a in filtered if a.get("status") == "UPCOMING"]
     recently_submitted = [
-        a for a in assignments
+        a
+        for a in assignments
         if (a.get("submission_status") or {}).get("submitted")
         and ((a.get("submission_status") or {}).get("days_ago") or 999) <= 7
     ]
@@ -88,7 +90,9 @@ def _build_section_recently_submitted(
     lines = ["## Tareas Entregadas Recientemente (Últimos 7 días)", ""]
     for a in recently_submitted:
         lines.append(f"- **{a.get('title', 'N/A')}** en **{a.get('course', 'N/A')}**")
-        lines.append(f"  - *Estado:* {(a.get('submission_status') or {}).get('status_text', 'N/A')}")
+        lines.append(
+            f"  - *Estado:* {(a.get('submission_status') or {}).get('status_text', 'N/A')}"
+        )
         lines.append(f"  - *URL:* {a.get('url', 'N/A')}")
     lines.extend(["", "---", ""])
     return "\n".join(lines)
@@ -162,7 +166,8 @@ def generate_markdown_report(
     due_today = [a for a in filtered if a.get("status") == "DUE_TODAY"]
     upcoming = [a for a in filtered if a.get("status") == "UPCOMING"]
     recently_submitted = [
-        a for a in (all_assignments or [])
+        a
+        for a in (all_assignments or [])
         if (a.get("submission_status") or {}).get("submitted")
         and ((a.get("submission_status") or {}).get("days_ago") or 999) <= 7
     ]
@@ -174,14 +179,10 @@ def generate_markdown_report(
     )
     courses_explored_section = _build_courses_explored_section(courses)
     has_any = bool(overdue or due_today or upcoming or recently_submitted)
-    empty_message = (
-        "## Sin tareas pendientes en el período consultado.\n\n" if not has_any else ""
-    )
+    empty_message = "## Sin tareas pendientes en el período consultado.\n\n" if not has_any else ""
     footer = "*Reporte generado por LMS Agent Scraper*"
 
-    tasks_in_period = (
-        len(overdue) + len(due_today) + len(upcoming) + len(recently_submitted)
-    )
+    tasks_in_period = len(overdue) + len(due_today) + len(upcoming) + len(recently_submitted)
     context = {
         "title": title,
         "generation_date": generation_date,
@@ -207,7 +208,9 @@ def generate_markdown_report(
     return render_report_from_template(template_str, context)
 
 
-def save_report(content: str, output_dir: str = "reports", prefix: str = "assignments_report") -> str:
+def save_report(
+    content: str, output_dir: str = "reports", prefix: str = "assignments_report"
+) -> str:
     """Guarda el reporte en un archivo y devuelve la ruta."""
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)

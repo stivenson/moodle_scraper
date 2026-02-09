@@ -2,6 +2,7 @@
 Servidor MCP para LMS Agent Scraper.
 Expone herramientas: get_pending_assignments, get_submitted_assignments, get_courses, generate_report, check_deadlines, list_profiles.
 """
+
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -77,7 +78,8 @@ def get_submitted_assignments(days: int = 7) -> str:
         return str(result)
     assignments = result.get("assignments", [])
     submitted = [
-        a for a in assignments
+        a
+        for a in assignments
         if (a.get("submission_status") or {}).get("submitted")
         and ((a.get("submission_status") or {}).get("days_ago") or 999) <= days
     ]
@@ -147,7 +149,9 @@ def _format_assignments(assignments: List[Dict[str, Any]]) -> str:
         return "No hay tareas en el criterio indicado."
     lines = []
     for a in assignments:
-        lines.append(f"- {a.get('title', 'N/A')} | {a.get('course', 'N/A')} | {a.get('due_date', '')} | {a.get('url', '')}")
+        lines.append(
+            f"- {a.get('title', 'N/A')} | {a.get('course', 'N/A')} | {a.get('due_date', '')} | {a.get('url', '')}"
+        )
     return "\n".join(lines)
 
 

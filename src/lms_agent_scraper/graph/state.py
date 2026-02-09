@@ -1,4 +1,5 @@
 """Definición del estado del grafo LangGraph para el scraper."""
+
 from typing import Any, Dict, List, TypedDict
 
 

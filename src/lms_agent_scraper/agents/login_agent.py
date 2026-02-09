@@ -1,6 +1,12 @@
 """
 Agente de autenticación: login en el portal usando perfil YAML y Playwright.
+
+API futura: el workflow actual usa directamente nodes.authentication_node -> login_with_playwright.
+Este módulo expone run_auth y create_auth_runner como API programática alternativa (misma
+implementación en browser_tools). Útil para tests o para inyectar un auth_runner custom.
+No eliminar sin consenso.
 """
+
 from typing import Any, Dict, Optional
 
 from lms_agent_scraper.core.profile_loader import ProfileLoader, PortalProfile
@@ -19,6 +25,8 @@ def run_auth(
     """
     Ejecuta login en el portal usando el perfil de auth y Playwright.
     Retorna dict con success, cookies, error (para inyectar en ScraperState._auth_result).
+
+    API futura: no usada por el workflow actual; uso programático o tests.
     """
     auth = profile.auth
     path = login_path or auth.get("login_path", "/login/")
@@ -42,7 +50,9 @@ def create_auth_runner(
 ):
     """
     Factory: retorna un callable (base_url, username, password) -> auth_result
-    para usar con run_workflow(..., auth_runner=...).
+    para usar con run_workflow(..., auth_runner=...) cuando se soporte inyección.
+
+    API futura: no usada por el workflow actual; prevista para dependency inversion.
     """
     loader = ProfileLoader(profiles_dir)
     profile = loader.load(profile_name)

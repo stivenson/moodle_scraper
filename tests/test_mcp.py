@@ -1,7 +1,7 @@
 """Tests para el servidor MCP (herramientas disponibles y list_profiles)."""
+
 from pathlib import Path
 
-import pytest
 
 # Importar después de conftest que añade src al path
 from lms_agent_scraper.mcp.server import list_profiles

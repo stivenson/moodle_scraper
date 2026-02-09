@@ -1,7 +1,7 @@
 """Tests para el grafo LangGraph y workflow."""
+
 from pathlib import Path
 
-import pytest
 
 from lms_agent_scraper.graph.state import ScraperState
 from lms_agent_scraper.graph.workflow import build_workflow, run_workflow
@@ -50,6 +50,26 @@ def test_authentication_node_no_credentials():
     assert out["session_cookies"] == []
 
 
+def test_authentication_node_with_injected_login_fn():
+    """Con configurable.login_fn inyectado, el nodo usa el mock en lugar de login_with_playwright."""
+    state: ScraperState = {
+        "profile": {"auth": {"form_selectors": {}, "login_path": "/login/"}},
+        "base_url": "https://example.edu",
+        "username": "user",
+        "password": "pass",
+        "errors": [],
+    }
+
+    def mock_login(**kwargs):
+        return {"success": True, "cookies": [{"name": "sid", "value": "abc", "domain": ""}], "error": None}
+
+    config = {"configurable": {"login_fn": mock_login}}
+    out = nodes.authentication_node(state, config=config)
+    assert out["authenticated"] is True
+    assert len(out["session_cookies"]) == 1
+    assert out["session_cookies"][0]["name"] == "sid"
+
+
 def test_course_discovery_node_not_authenticated():
     state: ScraperState = {
         "authenticated": False,
@@ -58,3 +78,30 @@ def test_course_discovery_node_not_authenticated():
     }
     out = nodes.course_discovery_node(state)
     assert out["courses"] == []
+
+
+def test_data_processor_node_returns_empty_updates():
+    """data_processor_node no modifica estado; devuelve dict vacío."""
+    state: ScraperState = {"assignments": [], "errors": []}
+    out = nodes.data_processor_node(state)
+    assert out == {}
+
+
+def test_report_generator_node_with_empty_assignments(tmp_path):
+    """report_generator_node con sin tareas genera reporte y guarda en output_dir."""
+    state: ScraperState = {
+        "assignments": [],
+        "courses": [],
+        "days_ahead": 7,
+        "days_behind": 7,
+        "output_dir": str(tmp_path),
+        "base_url": "https://example.edu",
+        "profile": {},
+        "errors": [],
+    }
+    out = nodes.report_generator_node(state)
+    assert "report_path" in out
+    assert "errors" in out
+    if out["report_path"]:
+        assert Path(out["report_path"]).exists()
+        assert Path(out["report_path"]).parent == tmp_path

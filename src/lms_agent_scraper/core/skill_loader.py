@@ -51,9 +51,7 @@ class SkillLoader:
         match = re.match(frontmatter_pattern, content, re.DOTALL)
 
         if not match:
-            raise ValueError(
-                f"Formato inválido en {skill_path}: no se encontró frontmatter YAML"
-            )
+            raise ValueError(f"Formato inválido en {skill_path}: no se encontró frontmatter YAML")
 
         yaml_content = match.group(1)
         markdown_content = match.group(2)
@@ -179,12 +177,14 @@ class SkillLoader:
             if skill_file.exists():
                 try:
                     metadata = self.get_skill_metadata(skill_dir.name)
-                    skills.append({
-                        "name": skill_dir.name,
-                        "description": metadata.get("description", ""),
-                        "version": metadata.get("version", "1.0.0"),
-                        "path": skill_file,
-                    })
+                    skills.append(
+                        {
+                            "name": skill_dir.name,
+                            "description": metadata.get("description", ""),
+                            "version": metadata.get("version", "1.0.0"),
+                            "path": skill_file,
+                        }
+                    )
                 except Exception as e:
                     logger.warning("Error cargando skill %s: %s", skill_dir.name, e)
         return skills

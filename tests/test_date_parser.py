@@ -1,7 +1,7 @@
 """Tests para el parser de fechas."""
+
 from datetime import datetime
 
-import pytest
 
 from lms_agent_scraper.core.date_parser import parse_date, extract_date_from_text
 

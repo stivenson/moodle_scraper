@@ -1,18 +1,34 @@
 """Nodos del grafo LangGraph para el scraper."""
+
 import logging
-from typing import Any, Dict
+from typing import Any, Callable, Dict, Optional
+
+from langchain_core.runnables.config import RunnableConfig
 
 from lms_agent_scraper.graph.state import ScraperState
-from lms_agent_scraper.tools.browser_tools import get_course_links_with_playwright, login_with_playwright
-
-log = logging.getLogger(__name__)
+from lms_agent_scraper.tools.browser_tools import (
+    get_course_links_with_playwright,
+    login_with_playwright,
+)
 from lms_agent_scraper.tools.extraction_tools import get_assignments_for_courses
 from lms_agent_scraper.tools.report_tools import generate_markdown_report, save_report
 
+log = logging.getLogger(__name__)
 
-def authentication_node(state: ScraperState) -> Dict[str, Any]:
+
+def _get_configurable(config: Optional[RunnableConfig] = None) -> Dict[str, Any]:
+    """Extrae el diccionario configurable del config (inyección de dependencias)."""
+    if config is None:
+        return {}
+    return config.get("configurable") or {}
+
+
+def authentication_node(
+    state: ScraperState, config: Optional[RunnableConfig] = None
+) -> Dict[str, Any]:
     """
     Nodo de autenticación: login en el portal con Playwright usando perfil.
+    Opcional: config["configurable"]["login_fn"] para inyectar función de login (tests).
     """
     log.info("[1/5] Autenticación: iniciando login en el portal...")
     updates: Dict[str, Any] = {"errors": state.get("errors", [])}
@@ -28,8 +44,10 @@ def authentication_node(state: ScraperState) -> Dict[str, Any]:
         updates["session_cookies"] = []
         return updates
 
+    configurable = _get_configurable(config)
+    login_fn: Callable[..., Dict[str, Any]] = configurable.get("login_fn") or login_with_playwright
     try:
-        result = login_with_playwright(
+        result = login_fn(
             base_url=base_url,
             username=username,
             password=password,
@@ -45,7 +63,9 @@ def authentication_node(state: ScraperState) -> Dict[str, Any]:
         if updates["authenticated"]:
             log.info("[1/5] Autenticación: OK (sesión iniciada).")
         else:
-            log.warning("[1/5] Autenticacion: fallo - %s", result.get("error", "redireccion inesperada"))
+            log.warning(
+                "[1/5] Autenticacion: fallo - %s", result.get("error", "redireccion inesperada")
+            )
     except Exception as e:
         log.exception("[1/5] Autenticacion: error - %s", e)
         updates["errors"] = updates["errors"] + [f"Auth error: {e}"]
@@ -54,9 +74,12 @@ def authentication_node(state: ScraperState) -> Dict[str, Any]:
     return updates
 
 
-def course_discovery_node(state: ScraperState) -> Dict[str, Any]:
+def course_discovery_node(
+    state: ScraperState, config: Optional[RunnableConfig] = None
+) -> Dict[str, Any]:
     """
     Nodo de descubrimiento de cursos: obtiene la lista de cursos con Playwright.
+    Opcional: config["configurable"]["get_courses_fn"] para inyectar (tests).
     """
     log.info("[2/5] Descubrimiento de cursos: iniciando (abriendo /my/courses.php)...")
     updates: Dict[str, Any] = {"errors": state.get("errors", [])}
@@ -72,8 +95,12 @@ def course_discovery_node(state: ScraperState) -> Dict[str, Any]:
     base_url = state.get("base_url", "")
     cookies = state.get("session_cookies", [])
 
+    configurable = _get_configurable(config)
+    get_courses_fn: Callable[..., list] = (
+        configurable.get("get_courses_fn") or get_course_links_with_playwright
+    )
     try:
-        courses = get_course_links_with_playwright(
+        courses = get_courses_fn(
             base_url=base_url,
             navigation_profile=navigation,
             courses_profile=courses_config,
@@ -151,7 +178,9 @@ def report_generator_node(state: ScraperState) -> Dict[str, Any]:
     profile = state.get("profile") or {}
     reports_config = profile.get("reports", {})
     title_tpl = reports_config.get("title_template", "Reporte de Tareas - {portal_name}")
-    title = title_tpl.format(portal_name=state.get("base_url", "").replace("https://", "").split("/")[0] or "LMS")
+    title = title_tpl.format(
+        portal_name=state.get("base_url", "").replace("https://", "").split("/")[0] or "LMS"
+    )
 
     try:
         courses = state.get("courses", [])

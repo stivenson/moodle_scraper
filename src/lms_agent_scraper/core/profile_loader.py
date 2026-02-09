@@ -1,4 +1,5 @@
 """Carga y validación de perfiles YAML de portales LMS."""
+
 from pathlib import Path
 from typing import Any, Dict, List
 

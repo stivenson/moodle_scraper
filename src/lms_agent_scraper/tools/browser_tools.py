@@ -2,10 +2,11 @@
 Herramientas de navegación con Playwright para login y obtención de cursos.
 Incluye extracción por selectores (Playwright) y por parseo HTML (BeautifulSoup) como respaldo.
 """
+
 import logging
 import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
 log = logging.getLogger(__name__)
@@ -126,7 +127,9 @@ def _expand_more_navigation(
             break
 
 
-def detect_courses_presence(html: str, courses_profile: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def detect_courses_presence(
+    html: str, courses_profile: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
     Detecta si en el HTML hay tarjetas de curso (sin extraer nombres/URLs).
     Usa card_selectors del perfil o defaults Moodle.
@@ -153,13 +156,21 @@ def detect_courses_presence(html: str, courses_profile: Optional[Dict[str, Any]]
 
 try:
     from bs4 import BeautifulSoup
+
     BS4_AVAILABLE = True
 except ImportError:
     BS4_AVAILABLE = False
     BeautifulSoup = None
 
 try:
-    from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page, TimeoutError as PlaywrightTimeout
+    from playwright.sync_api import (
+        sync_playwright,
+        Browser,
+        BrowserContext,
+        Page,
+        TimeoutError as PlaywrightTimeout,
+    )
+
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
@@ -244,7 +255,9 @@ def login_with_playwright(
                         if "text_contains" in ind:
                             content = page.content()
                             if ind["text_contains"].lower() in content.lower():
-                                result["error"] = f"Login failed: page contains '{ind['text_contains']}'"
+                                result["error"] = (
+                                    f"Login failed: page contains '{ind['text_contains']}'"
+                                )
                                 break
                         if "element_present" in ind:
                             try:
@@ -273,14 +286,14 @@ def login_with_playwright(
     return result
 
 
-def _extract_courses_from_html(
+def _extract_courses_bs4(
     html: str,
     base_url: str,
     courses_profile: Optional[Dict[str, Any]] = None,
     debug: bool = False,
 ) -> List[Dict[str, str]]:
     """
-    Extrae la lista de cursos parseando el HTML con BeautifulSoup.
+    Extrae la lista de cursos parseando el HTML con BeautifulSoup (tarjetas y selectores).
     Si se pasa courses_profile, usa card_selectors, name_selectors, link_selector,
     link_href_pattern y fallback_containers del perfil; si no, usa defaults Moodle.
     """
@@ -367,8 +380,6 @@ def _extract_courses_from_html(
     return course_list
 
 
-
-
 def _extract_courses_by_link_segment(
     html: str,
     base_url: str,
@@ -400,18 +411,30 @@ def _extract_courses_by_link_segment(
             seen_urls.add(url)
             course_list.append({"url": url, "name": name or "Sin nombre"})
     if debug and course_list:
-        log.debug("  [link_segment] Encontrados %d cursos por segmento URL (keywords: %s)", len(course_list), segment_keywords)
+        log.debug(
+            "  [link_segment] Encontrados %d cursos por segmento URL (keywords: %s)",
+            len(course_list),
+            segment_keywords,
+        )
     return course_list
 
 
-def _extract_courses_with_llm(html: str, base_url: str, debug: bool = False) -> List[Dict[str, str]]:
+def _extract_courses_llm(
+    html: str,
+    base_url: str,
+    debug: bool = False,
+    llm_client: Optional[Any] = None,
+) -> List[Dict[str, str]]:
     """
-    Usa el LLM local (Ollama / GLM-4.7-Flash) para extraer cursos desde el HTML de "Mis cursos".
-    Es el método principal cuando Ollama está disponible; si no hay cursos, se usa Playwright y BeautifulSoup como respaldo.
+    Usa el LLM local (Ollama) para extraer cursos desde el HTML de "Mis cursos".
+    Opcional: llm_client para inyectar cliente (tests); si None, se usa LocalLLMClient().
     """
     try:
-        from lms_agent_scraper.llm.ollama_client import LocalLLMClient
-        client = LocalLLMClient()
+        if llm_client is None:
+            from lms_agent_scraper.llm.ollama_client import LocalLLMClient
+
+            llm_client = LocalLLMClient()
+        client = llm_client
         if not client.available:
             if debug:
                 log.debug("  [DEBUG] Ollama no disponible; omitiendo extraccion con LLM")
@@ -423,6 +446,109 @@ def _extract_courses_with_llm(html: str, base_url: str, debug: bool = False) -> 
         return []
 
 
+def _try_extract_courses_step_by_step(
+    html_snapshot: str,
+    page: Any,
+    base_url: str,
+    courses_profile: Dict[str, Any],
+    container_sel: str,
+    selectors: List[str],
+    link_href_pattern: str,
+    debug: bool,
+    llm_client: Optional[Any] = None,
+) -> Tuple[List[Dict[str, str]], bool]:
+    """
+    Ejecuta en orden: extracción por segmento URL, BS4, LLM, Playwright.
+    Retorna (lista de cursos, found_early). Si found_early es True, un paso devolvió cursos y se puede retornar ya.
+    """
+    segment_keywords = _get_course_link_segments_from_profile(courses_profile)
+
+    # Paso 0: enlaces por segmento de URL
+    course_list = _extract_courses_by_link_segment(
+        html_snapshot, base_url, courses_profile=courses_profile, debug=debug
+    )
+    if course_list:
+        log.info(
+            "  -> Cursos obtenidos por enlaces (segmento URL, keywords=%s): %d",
+            segment_keywords,
+            len(course_list),
+        )
+        return (course_list, True)
+
+    # Paso 1: BeautifulSoup
+    if BS4_AVAILABLE:
+        course_list = _extract_courses_bs4(
+            html_snapshot, base_url, courses_profile=courses_profile, debug=debug
+        )
+        if course_list:
+            log.info("  -> Cursos obtenidos con HTML (BeautifulSoup): %d", len(course_list))
+            return (course_list, True)
+    log.info("  -> BeautifulSoup: 0 cursos; probando LLM...")
+
+    # Paso 2: LLM
+    course_list = _extract_courses_llm(
+        html_snapshot, base_url, debug=debug, llm_client=llm_client
+    )
+    if course_list:
+        log.info("  -> Cursos obtenidos con LLM (Ollama): %d", len(course_list))
+        return (course_list, True)
+    log.info("  -> LLM no disponible o devolvio 0; probando selectores Playwright...")
+
+    # Paso 3: Playwright (enlaces por segmento y luego selectores CSS)
+    course_list = []
+    seen_urls: set = set()
+    try:
+        for link_el in page.locator("a[href]").all():
+            try:
+                href = link_el.get_attribute("href")
+                if not href:
+                    continue
+                if not _is_course_url_by_segment(href, base_url, segment_keywords):
+                    continue
+                url = urljoin(base_url + "/", href)
+                if url in seen_urls:
+                    continue
+                text = (link_el.inner_text() or "").strip()
+                if len(text) >= 2 or (len(text) >= 1 and len(url) >= 10):
+                    seen_urls.add(url)
+                    course_list.append({"url": url, "name": text or "Sin nombre"})
+            except Exception:
+                continue
+    except Exception:
+        pass
+    if course_list:
+        log.info(
+            "  -> Cursos obtenidos con Playwright (enlaces por segmento URL): %d",
+            len(course_list),
+        )
+        return (course_list, False)
+    scope = page
+    try:
+        if page.locator(container_sel).count() > 0:
+            scope = page.locator(container_sel).first
+    except Exception:
+        pass
+    for sel in selectors:
+        for link in scope.locator(sel).all():
+            try:
+                href = link.get_attribute("href")
+                text = (link.inner_text() or "").strip()
+                if href and link_href_pattern in href and len(text) >= 1:
+                    url = urljoin(base_url + "/", href)
+                    if url not in seen_urls:
+                        seen_urls.add(url)
+                        course_list.append({"url": url, "name": text.strip()})
+            except Exception:
+                continue
+        if course_list:
+            break
+    if course_list:
+        log.info("  -> Cursos obtenidos con selectores Playwright: %d", len(course_list))
+    else:
+        log.info("  -> Selectores Playwright: 0 enlaces.")
+    return (course_list, False)
+
+
 def get_course_links_with_playwright(
     base_url: str,
     navigation_profile: Dict[str, Any],
@@ -432,11 +558,13 @@ def get_course_links_with_playwright(
     timeout_ms: int = 20000,
     debug: bool = False,
     course_discovery_profile: Optional[Dict[str, Any]] = None,
+    llm_client: Optional[Any] = None,
 ) -> List[Dict[str, str]]:
     """
     Obtiene la lista de cursos desde la página de cursos usando Playwright y cookies de sesión.
     Si course_discovery_profile tiene fallback_when_empty: true y no se encontraron cursos,
     se usa el agente de descubrimiento por contenido (visitar enlaces y clasificar con LLM).
+    Opcional: llm_client para inyectar cliente LLM (tests); si None, se usa LocalLLMClient().
     """
     if not PLAYWRIGHT_AVAILABLE:
         return []
@@ -461,7 +589,8 @@ def get_course_links_with_playwright(
                         {
                             "name": c["name"],
                             "value": c["value"],
-                            "domain": c.get("domain", "").lstrip(".") or base_url.replace("https://", "").split("/")[0],
+                            "domain": c.get("domain", "").lstrip(".")
+                            or base_url.replace("https://", "").split("/")[0],
                             "path": "/",
                         }
                         for c in cookies
@@ -494,6 +623,7 @@ def get_course_links_with_playwright(
             log.info("  -> HTML de pagina de cursos: %d caracteres", len(html_snapshot or ""))
             if debug:
                 from pathlib import Path
+
                 debug_dir = Path("debug_html")
                 debug_dir.mkdir(exist_ok=True)
                 (debug_dir / "courses_page.html").write_text(html_snapshot, encoding="utf-8")
@@ -508,93 +638,20 @@ def get_course_links_with_playwright(
                 presence.get("selector_matched") or "n/a",
             )
 
-            # 0) Extracción por segmento de URL (palabras clave: course, courses, cursos, etc.)
-            segment_keywords = _get_course_link_segments_from_profile(courses_profile)
-            course_list = _extract_courses_by_link_segment(
-                html_snapshot, base_url, courses_profile=courses_profile, debug=debug
+            course_list, found_early = _try_extract_courses_step_by_step(
+                html_snapshot,
+                page,
+                base_url,
+                courses_profile,
+                container_sel,
+                selectors,
+                link_href_pattern,
+                debug,
+                llm_client=llm_client,
             )
-            if course_list:
-                log.info(
-                    "  -> Cursos obtenidos por enlaces (segmento URL, keywords=%s): %d",
-                    segment_keywords,
-                    len(course_list),
-                )
+            if found_early:
                 browser.close()
                 return course_list
-
-            # 1) Extracción con BeautifulSoup (selectores del perfil o defaults Moodle)
-            if BS4_AVAILABLE:
-                course_list = _extract_courses_from_html(
-                    html_snapshot, base_url, courses_profile=courses_profile, debug=debug
-                )
-                if course_list:
-                    log.info("  -> Cursos obtenidos con HTML (BeautifulSoup): %d", len(course_list))
-                    browser.close()
-                    return course_list
-            log.info("  -> BeautifulSoup: 0 cursos; probando LLM...")
-
-            # 2) LLM (Ollama) si está disponible
-            course_list = _extract_courses_with_llm(html_snapshot, base_url, debug=debug)
-            if course_list:
-                log.info("  -> Cursos obtenidos con LLM (Ollama): %d", len(course_list))
-                browser.close()
-                return course_list
-            log.info("  -> LLM no disponible o devolvio 0; probando selectores Playwright...")
-
-            # 3) Playwright: primero todos los enlaces filtrados por segmento URL, luego selectores CSS
-            seen_urls: set = set()
-            segment_keywords_playwright = _get_course_link_segments_from_profile(courses_profile)
-            try:
-                for link_el in page.locator("a[href]").all():
-                    try:
-                        href = link_el.get_attribute("href")
-                        if not href:
-                            continue
-                        if not _is_course_url_by_segment(href, base_url, segment_keywords_playwright):
-                            continue
-                        url = urljoin(base_url + "/", href)
-                        if url in seen_urls:
-                            continue
-                        text = (link_el.inner_text() or "").strip()
-                        if len(text) >= 2 or (len(text) >= 1 and len(url) >= 10):
-                            seen_urls.add(url)
-                            course_list.append({"url": url, "name": text or "Sin nombre"})
-                    except Exception:
-                        continue
-            except Exception:
-                pass
-            if course_list:
-                log.info(
-                    "  -> Cursos obtenidos con Playwright (enlaces por segmento URL): %d",
-                    len(course_list),
-                )
-            else:
-                # 3b) Selectores CSS del perfil
-                scope = page
-                try:
-                    if page.locator(container_sel).count() > 0:
-                        scope = page.locator(container_sel).first
-                except Exception:
-                    pass
-                for sel in selectors:
-                    links = scope.locator(sel).all()
-                    for link in links:
-                        try:
-                            href = link.get_attribute("href")
-                            text = (link.inner_text() or "").strip()
-                            if href and link_href_pattern in href and len(text) >= 1:
-                                url = urljoin(base_url + "/", href)
-                                if url not in seen_urls:
-                                    seen_urls.add(url)
-                                    course_list.append({"url": url, "name": text.strip()})
-                        except Exception:
-                            continue
-                    if course_list:
-                        break
-                if course_list:
-                    log.info("  -> Cursos obtenidos con selectores Playwright: %d", len(course_list))
-                else:
-                    log.info("  -> Selectores Playwright: 0 enlaces.")
 
             if presence["has_courses"] and not course_list:
                 log.warning(
@@ -603,8 +660,15 @@ def get_course_links_with_playwright(
                 )
 
             # Fallback: descubrimiento por contenido (visitar enlaces y clasificar con LLM)
-            if not course_list and course_discovery_profile and course_discovery_profile.get("fallback_when_empty"):
-                from lms_agent_scraper.agents.course_discovery_agent import discover_courses_by_visiting_links
+            if (
+                not course_list
+                and course_discovery_profile
+                and course_discovery_profile.get("fallback_when_empty")
+            ):
+                from lms_agent_scraper.agents.course_discovery_agent import (
+                    discover_courses_by_visiting_links,
+                )
+
                 log.info("  -> Ejecutando discovery por contenido (visitar enlaces + LLM)...")
                 course_list = discover_courses_by_visiting_links(
                     page=page,
@@ -615,7 +679,9 @@ def get_course_links_with_playwright(
                     debug=debug,
                 )
                 if course_list:
-                    log.info("  -> Cursos obtenidos con discovery por contenido: %d", len(course_list))
+                    log.info(
+                        "  -> Cursos obtenidos con discovery por contenido: %d", len(course_list)
+                    )
 
             browser.close()
     except Exception as e:

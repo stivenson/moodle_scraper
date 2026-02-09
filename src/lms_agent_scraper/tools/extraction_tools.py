@@ -1,16 +1,17 @@
 """
 Herramientas de extracción de tareas desde HTML usando perfil de selectores.
 """
+
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import requests
-
-log = logging.getLogger(__name__)
 from bs4 import BeautifulSoup
 
-from lms_agent_scraper.core.date_parser import parse_date, extract_date_from_text
+from lms_agent_scraper.core.date_parser import extract_date_from_text
+
+log = logging.getLogger(__name__)
 
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -22,11 +23,13 @@ def session_from_cookies(
 ) -> requests.Session:
     """Crea una sesión requests con las cookies de sesión del portal."""
     session = requests.Session()
-    session.headers.update({
-        "User-Agent": USER_AGENT,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-    })
+    session.headers.update(
+        {
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+        }
+    )
     domain = base_url.replace("https://", "").replace("http://", "").split("/")[0]
     for c in cookies:
         name = c.get("name")
@@ -109,16 +112,18 @@ def extract_assignments_from_html(
                     href,
                     profile.get("assignments", {}).get("types", []),
                 )
-                assignments.append({
-                    "title": title,
-                    "due_date": due_date_str or "",
-                    "course": course_name,
-                    "type": assignment_type,
-                    "url": href,
-                    "section": section_name,
-                    "submission_status": {"submitted": False, "status_text": "No entregada"},
-                    "attached_files": [],
-                })
+                assignments.append(
+                    {
+                        "title": title,
+                        "due_date": due_date_str or "",
+                        "course": course_name,
+                        "type": assignment_type,
+                        "url": href,
+                        "section": section_name,
+                        "submission_status": {"submitted": False, "status_text": "No entregada"},
+                        "attached_files": [],
+                    }
+                )
             except Exception:
                 continue
     return assignments
@@ -137,6 +142,7 @@ def extract_assignments_from_html_with_llm(
     """
     try:
         from lms_agent_scraper.llm.ollama_client import LocalLLMClient
+
         client = LocalLLMClient()
         if client.available:
             items = client.extract_assignments_from_course_html(
@@ -180,9 +186,16 @@ def get_assignments_for_courses(
         course_name = course.get("name", "Sin nombre")
         if not course_url:
             continue
-        log.info("  → Curso %d/%d: %s", i + 1, limit, course_name[:50] + ("..." if len(course_name) > 50 else ""))
+        log.info(
+            "  → Curso %d/%d: %s",
+            i + 1,
+            limit,
+            course_name[:50] + ("..." if len(course_name) > 50 else ""),
+        )
         if not course_url.startswith("http"):
-            course_url = base_url.rstrip("/") + ("/" if not course_url.startswith("/") else "") + course_url
+            course_url = (
+                base_url.rstrip("/") + ("/" if not course_url.startswith("/") else "") + course_url
+            )
         try:
             resp = session.get(course_url, timeout=timeout)
             resp.raise_for_status()

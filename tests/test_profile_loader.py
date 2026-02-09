@@ -1,4 +1,5 @@
 """Tests para ProfileLoader y perfiles YAML."""
+
 import pytest
 from pathlib import Path
 

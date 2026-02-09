@@ -1,4 +1,5 @@
 """Configuración desde variables de ambiente (.env)."""
+
 from pathlib import Path
 from typing import Literal
 
@@ -44,5 +45,3 @@ class OutputSettings(BaseSettings):
         default="markdown",
         alias="OUTPUT_FORMAT",
     )
-
-

@@ -1,4 +1,5 @@
 """Configuración de Ollama / GLM-4.7-Flash."""
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

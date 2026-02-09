@@ -1,4 +1,5 @@
 """Tests para extracción de tareas desde HTML de página de curso (estilo Moodle)."""
+
 from pathlib import Path
 
 import pytest

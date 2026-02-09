@@ -1,8 +1,11 @@
 """
 CLI para LMS Agent Scraper.
 """
+
 import logging
 import sys
+from pathlib import Path
+
 import typer
 
 app = typer.Typer(name="lms-scraper", help="Framework de agentes para scraping de portales LMS")
@@ -24,7 +27,9 @@ def _configure_logging():
 
 @app.command()
 def run(
-    profile: str = typer.Option(None, "--profile", "-p", help="Perfil YAML a usar (default: PORTAL_PROFILE)"),
+    profile: str = typer.Option(
+        None, "--profile", "-p", help="Perfil YAML a usar (default: PORTAL_PROFILE)"
+    ),
 ):
     """Ejecutar scraper con perfil por defecto o especificado."""
     from lms_agent_scraper.config.settings import PortalSettings, ScraperSettings, OutputSettings
@@ -63,6 +68,7 @@ def run(
         for e in result["errors"]:
             typer.echo(f"  [error] {e}", err=True)
     from lms_agent_scraper.tools.report_tools import count_tasks_in_period
+
     tasks_in_period = count_tasks_in_period(
         result.get("assignments", []),
         result.get("days_ahead", 7),
@@ -79,8 +85,7 @@ def run(
 profiles_app = typer.Typer(help="Gestión de perfiles YAML")
 
 
-def _profiles_dir() -> "Path":
-    from pathlib import Path
+def _profiles_dir() -> Path:
     # Project root: go up from .../src/lms_agent_scraper/cli.py to repo root
     here = Path(__file__).resolve().parent
     root = here.parent.parent  # .../src -> parent is repo root

@@ -1,9 +1,13 @@
 """Tests para report_tools."""
+
 from datetime import datetime, timedelta
 
-import pytest
 
-from lms_agent_scraper.tools.report_tools import filter_by_date, generate_markdown_report, save_report
+from lms_agent_scraper.tools.report_tools import (
+    filter_by_date,
+    generate_markdown_report,
+    save_report,
+)
 
 
 def test_filter_by_date_empty():
@@ -45,9 +49,7 @@ def test_generate_markdown_report_assignments_outside_period():
     assignments = [
         {"due_date": far_future, "title": "Tarea lejana", "course": "C1"},
     ]
-    content = generate_markdown_report(
-        assignments, days_ahead=21, days_behind=7, title="Test"
-    )
+    content = generate_markdown_report(assignments, days_ahead=21, days_behind=7, title="Test")
     assert "**Total tareas:** 0" in content
     assert "Sin tareas pendientes" in content
 
@@ -57,5 +59,6 @@ def test_save_report(tmp_path):
     path = save_report(content, output_dir=str(tmp_path), prefix="test")
     assert path.endswith(".md")
     from pathlib import Path
+
     assert Path(path).exists()
     assert "test_" in Path(path).name

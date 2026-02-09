@@ -2,9 +2,10 @@
 Workflow principal del scraper como grafo LangGraph.
 Flujo: Start -> Auth -> CourseDiscovery -> AssignmentExtractor -> DataProcessor -> ReportGenerator -> End
 """
+
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 from lms_agent_scraper.graph.state import ScraperState
@@ -25,10 +26,12 @@ def _normalize_base_url(url: str) -> str:
     scheme = parsed.scheme or "https"
     return f"{scheme}://{parsed.netloc}"
 
+
 log = logging.getLogger(__name__)
 
 try:
     from langgraph.graph import END, StateGraph
+
     LANGGRAPH_AVAILABLE = True
 except ImportError:
     LANGGRAPH_AVAILABLE = False
@@ -83,7 +86,9 @@ def run_workflow(
     loader = ProfileLoader(profiles_path)
     profile_model = loader.load(profile_name)
     profile_dict = profile_model.model_dump()
-    log.info("Workflow: perfil cargado. Iniciando grafo (Auth -> Cursos -> Tareas -> Proceso -> Reporte).")
+    log.info(
+        "Workflow: perfil cargado. Iniciando grafo (Auth -> Cursos -> Tareas -> Proceso -> Reporte)."
+    )
 
     initial: ScraperState = {
         "profile_name": profile_name,

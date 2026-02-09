@@ -2,6 +2,7 @@
 Agente de descubrimiento de cursos por contenido: extrae enlaces candidatos de la página actual,
 visita cada uno con Playwright y clasifica con el LLM si el contenido es una página de curso.
 """
+
 import logging
 from typing import Any, Dict, List
 from urllib.parse import urljoin, urlparse
@@ -12,6 +13,7 @@ log = logging.getLogger(__name__)
 
 try:
     from bs4 import BeautifulSoup
+
     BS4_AVAILABLE = True
 except ImportError:
     BS4_AVAILABLE = False
@@ -132,5 +134,9 @@ def discover_courses_by_visiting_links(
             if debug:
                 log.debug("  [course_discovery_agent] Error visitando %s: %s", url, e)
             continue
-    log.info("  -> Discovery por contenido: visitadas %d pagina(s), %d curso(s) detectado(s)", visited, len(course_list))
+    log.info(
+        "  -> Discovery por contenido: visitadas %d pagina(s), %d curso(s) detectado(s)",
+        visited,
+        len(course_list),
+    )
     return course_list

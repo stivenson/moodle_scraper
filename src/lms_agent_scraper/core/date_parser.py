@@ -1,10 +1,13 @@
 """Parser de fechas multi-formato para portales LMS."""
+
 import re
 from datetime import datetime
 from typing import List, Optional
 
 
-def parse_date(date_string: Optional[str], patterns: Optional[List[str]] = None) -> Optional[datetime]:
+def parse_date(
+    date_string: Optional[str], patterns: Optional[List[str]] = None
+) -> Optional[datetime]:
     """
     Parsea cadenas de fecha en varios formatos.
     patterns: regex opcionales del perfil para extraer fechas.
@@ -65,6 +68,7 @@ def parse_date(date_string: Optional[str], patterns: Optional[List[str]] = None)
 def extract_date_from_text(text: str, profile_patterns: List[str]) -> Optional[str]:
     """Extrae la primera fecha encontrada en text usando los patrones del perfil."""
     import re
+
     for pattern in profile_patterns or []:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
