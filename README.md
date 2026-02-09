@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="logo.jpg" alt="Moodle Scraper" width="280" />
+</div>
+
 # 📚 LMS Agent Scraper — Sistema de scrapers IA para Moodle
 
 <div align="center">
