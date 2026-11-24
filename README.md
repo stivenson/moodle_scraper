@@ -71,13 +71,13 @@ pip install -e .
 playwright install chromium
 ```
 
-Copia `.env.example` a `.env` y configura al menos: `PORTAL_PROFILE` (perfil YAML, ej. `moodle_unisimon` o `moodle_default`), `PORTAL_BASE_URL`, `PORTAL_USERNAME`, `PORTAL_PASSWORD`. Luego:
+Copia `.env.example` a `.env` y configura `PORTAL_BASE_URL`, `PORTAL_USERNAME` y `PORTAL_PASSWORD`. La plantilla usa el perfil genérico `moodle_default` y `https://moodle.example.edu`; para el adaptador de Aula Extendida de la Universidad Simón Bolívar, cambia `PORTAL_PROFILE=moodle_unisimon` y define la URL real del portal. Puedes limitar cursos con `SCRAPER_TARGET_COURSES`, separados por coma; vacío incluye todos los cursos descubiertos.
 
 ```bash
 python -m lms_agent_scraper.cli run
 ```
 
-**Valores por defecto:** se usa el perfil indicado en `PORTAL_PROFILE`, los días en `SCRAPER_DAYS_AHEAD` / `SCRAPER_DAYS_BEHIND`, y el reporte se escribe en `reports/`. *El perfil moodle_unisimon y las URLs de ejemplo corresponden a la Universidad Simón Bolívar (Colombia), Aula Extendida.* Sin argumentos adicionales, este comando es suficiente.
+**Valores por defecto:** se usa el perfil indicado en `PORTAL_PROFILE`, los días en `SCRAPER_DAYS_AHEAD` / `SCRAPER_DAYS_BEHIND`, y el reporte se escribe en `reports/`. El perfil `moodle_unisimon` es un adaptador de ejemplo para Aula Extendida; los demás portales Moodle pueden usar `moodle_default` o un perfil propio.
 
 ---
 
@@ -238,6 +238,8 @@ Tabla por categoría de lo usado en la implementación del repo:
 - 📅 Filtrado de tareas por período personalizable (días adelante/atrás)
 - 📊 Generación de reportes en formato Markdown
 - 🔍 Modo debug para análisis del portal
+- 📚 Recorrido de secciones Moodle con límites y deduplicación; los estados sin verificar se reportan como desconocidos
+- 📝 Herramientas MCP para leer y gestionar las entregas propias de tareas descubiertas; las mutaciones requieren confirmación explícita
 - 🛠️ **v2:** Workflow LangGraph (auth → discovery → extracción → reporte), perfiles YAML, MCP
 - 🛠️ **v2:** Detección de cursos: BeautifulSoup (principal), LLM (Ollama) y Playwright como respaldo; detección de presencia de tarjetas; fallback por contenido (visitar enlaces y clasificar con LLM)
 
@@ -256,7 +258,7 @@ moodle_scraper/
 │   ├── agents/             # Agentes (login, course discovery, analyzer)
 │   ├── graph/              # Workflow LangGraph (nodes, workflow, state)
 │   ├── llm/                # Cliente Ollama (extracción y clasificación)
-│   ├── tools/              # browser_tools, extraction_tools, report_tools
+│   ├── tools/              # extracción, estado de entregas, gestión Moodle y reportes
 │   ├── core/               # date_parser, profile_loader, skill_loader
 │   ├── skills/             # Prompts LLM en SKILL.md (date-interpreter, course-extractor, etc.)
 │   └── mcp/                # Servidor MCP
@@ -336,12 +338,12 @@ El comando por defecto **`python -m lms_agent_scraper.cli run`** es la forma má
 ### ⚙️ Configuración (v2)
 
 1. Copiar `.env.example` a `.env` y configurar:
-   - `PORTAL_PROFILE`: perfil YAML (valores iniciales de ejemplo: `moodle_unisimon` para Universidad Simón Bolívar, Colombia, Aula Extendida; o `moodle_default` como plantilla genérica). Para otros portales Moodle, usar o crear el perfil correspondiente.
+   - `PORTAL_PROFILE`: perfil YAML (`moodle_default` es genérico; `moodle_unisimon` es un adaptador para Aula Extendida). Para otros portales, usa o crea el perfil correspondiente.
    - `PORTAL_BASE_URL`, `PORTAL_USERNAME`, `PORTAL_PASSWORD`
-   - Opcional: `SCRAPER_DAYS_AHEAD`, `SCRAPER_DAYS_BEHIND`, `SCRAPER_MAX_COURSES`, `SCRAPER_OUTPUT_DIR`, `SCRAPER_DEBUG_MODE` (guardar HTML en `debug_html/` y más logs)
+   - Opcional: `SCRAPER_TARGET_COURSES` (nombres separados por coma; vacío incluye todos los cursos descubiertos), `SCRAPER_DAYS_AHEAD`, `SCRAPER_DAYS_BEHIND`, `SCRAPER_MAX_COURSES`, `SCRAPER_OUTPUT_DIR`, `SCRAPER_DEBUG_MODE` (guardar HTML en `debug_html/` y más logs)
    - Opcional (Ollama): `OLLAMA_BASE_URL`, `OLLAMA_MODEL_NAME`, `OLLAMA_TEMPERATURE`, `OLLAMA_NUM_CTX`, `OLLAMA_NUM_PREDICT` — usado para extraer la lista de cursos desde el HTML, clasificar páginas como “curso” en el discovery por contenido y (en el futuro) sugerir selectores. Requiere Ollama en ejecución y un modelo (p. ej. `ollama run glm-4.7-flash`). Ver [ollama.com/library/glm-4.7-flash](https://ollama.com/library/glm-4.7-flash). Si no está disponible, la extracción se hace con BeautifulSoup y Playwright.
 
-2. 📁 Perfiles YAML en `profiles/` definen selectores, auth y opciones por portal (Moodle, Canvas, etc.). El perfil `moodle_unisimon` es el de ejemplo por defecto (Universidad Simón Bolívar, Colombia, Aula Extendida) e incluye `course_discovery` para el fallback por contenido.
+2. 📁 Perfiles YAML en `profiles/` definen selectores, autenticación y opciones por portal. `moodle_default` es la plantilla genérica; `moodle_unisimon` contiene selectores para Aula Extendida e incluye `course_discovery` como fallback por contenido.
 
 ### 🔍 Detección de cursos (v2)
 
@@ -354,6 +356,8 @@ En la página "Mis cursos" del portal, la lista de cursos se obtiene en este ord
 5. **Discovery por contenido** — fallback opcional (perfil `course_discovery.fallback_when_empty: true`): si sigue habiendo 0 cursos, se extraen enlaces candidatos, se visitan y el LLM clasifica si son páginas de curso. Configurable con `max_candidates` y `candidate_patterns`.
 
 Antes de extraer, se detecta la presencia de tarjetas de curso (`detect_courses_presence`) y, si el perfil lo indica, se puede expandir "Ver más" / paginación (`more_navigation`) antes de capturar el HTML.
+
+En Moodle, el scraper sigue las páginas de sección enlazadas desde cada curso, deduplica actividades y consulta el estado de cada entrega. El recorrido tiene límites para evitar peticiones excesivas: 25 secciones por curso, 100 páginas de sección por recorrido y 300 consultas de estado. Si no puede completar una sección o confirmar el estado, informa el resultado como incompleto; un estado desconocido no se clasifica como entrega pendiente.
 
 #### 📐 Esquema del bloque `courses` en el perfil
 
@@ -418,7 +422,7 @@ En la configuración MCP del cliente:
       "command": "python",
       "args": ["-m", "lms_agent_scraper.mcp.server"],
       "env": {
-        "PORTAL_PROFILE": "moodle_unisimon",
+        "PORTAL_PROFILE": "moodle_default",
         "PORTAL_BASE_URL": "${env:PORTAL_BASE_URL}",
         "PORTAL_USERNAME": "${env:PORTAL_USERNAME}",
         "PORTAL_PASSWORD": "${env:PORTAL_PASSWORD}"
@@ -428,7 +432,7 @@ En la configuración MCP del cliente:
 }
 ```
 
-🛠️ Herramientas expuestas: `get_pending_assignments`, `get_submitted_assignments`, `get_courses`, `generate_report`, `check_deadlines`, `list_profiles`. El servidor da acceso a portales LMS Moodle; en la configuración de ejemplo se usa el perfil `moodle_unisimon` (Universidad Simón Bolívar, Colombia). El cliente recibe `instructions` con ese contexto cuando se usa dicho perfil.
+🛠️ Herramientas expuestas: `get_pending_assignments`, `get_submitted_assignments`, `get_courses`, `generate_report`, `check_deadlines`, `list_profiles`, `get_assignment_workflow`, `read_assignment` y `manage_submission`. `get_pending_assignments` puede filtrar por `course_names` o `SCRAPER_TARGET_COURSES`; sin filtro usa los cursos descubiertos. `read_assignment` y `manage_submission` solo aceptan tareas que el scraper descubrió en el recorrido actual. Las acciones `create`, `update` y `delete` requieren `confirmed=true`; el portal, el ID de actividad y el estado actual también se validan. `delete` retira la entrega propia, no la actividad del curso. Configura el perfil y las credenciales del Moodle que vayas a usar.
 
 ### 💻 Desarrollo con Cursor
 

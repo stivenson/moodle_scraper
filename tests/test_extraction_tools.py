@@ -12,12 +12,11 @@ from lms_agent_scraper.tools.extraction_tools import (
     session_from_cookies,
 )
 
-
 PROFILES_DIR = Path(__file__).resolve().parent.parent / "profiles"
 
 
 def _moodle_profile() -> dict:
-    """Perfil de ejemplo moodle_unisimon (Universidad Simón Bolívar, Colombia) como dict para selectores."""
+    """Carga un perfil de ejemplo con selectores específicos para Unisimón."""
     loader = ProfileLoader(PROFILES_DIR)
     profile = loader.load("moodle_unisimon")
     return profile.model_dump()
@@ -134,7 +133,9 @@ def test_extract_assignments_from_html_empty_returns_empty_list(moodle_profile):
     assert result == []
 
 
-def test_extract_assignments_from_html_rejects_external_or_downgraded_activity_links(moodle_profile):
+def test_extract_assignments_from_html_rejects_external_or_downgraded_activity_links(
+    moodle_profile,
+):
     base_url = "https://lms.example.edu"
     html = """
       <a href="/mod/assign/view.php?id=42">Tarea segura del curso</a>
@@ -151,9 +152,7 @@ def test_extract_assignments_from_html_rejects_external_or_downgraded_activity_l
         base_url=base_url,
     )
 
-    assert [item["url"] for item in result] == [
-        f"{base_url}/mod/assign/view.php?id=42"
-    ]
+    assert [item["url"] for item in result] == [f"{base_url}/mod/assign/view.php?id=42"]
 
 
 def test_assignment_state_request_failure_returns_explicit_unknown_state():
@@ -164,7 +163,13 @@ def test_assignment_state_request_failure_returns_explicit_unknown_state():
             raise OSError("portal no disponible")
 
     result = enrich_assignment_submission_status(
-        [{"type": "assignment", "title": "Tarea", "url": "https://example.test/mod/assign/view.php?id=1"}],
+        [
+            {
+                "type": "assignment",
+                "title": "Tarea",
+                "url": "https://example.test/mod/assign/view.php?id=1",
+            }
+        ],
         Session(),
     )
 
@@ -172,9 +177,7 @@ def test_assignment_state_request_failure_returns_explicit_unknown_state():
     assert result[0]["submission_status"]["state"] == "unknown"
 
 
-def test_get_assignments_for_courses_visits_all_linked_moodle_sections(
-    monkeypatch, moodle_profile
-):
+def test_get_assignments_for_courses_visits_all_linked_moodle_sections(monkeypatch, moodle_profile):
     from lms_agent_scraper.tools import extraction_tools
 
     base_url = "https://lms.example.edu"
@@ -253,8 +256,7 @@ def test_course_section_links_require_same_scheme_course_id_and_single_values():
 def test_course_section_page_count_is_bounded():
     base = "https://lms.example.edu/course/view.php?id=8100"
     links = "".join(
-        f'<a href="/course/view.php?id=8100&amp;section={i}">Unidad {i}</a>'
-        for i in range(1, 27)
+        f'<a href="/course/view.php?id=8100&amp;section={i}">Unidad {i}</a>' for i in range(1, 27)
     )
 
     with pytest.raises(RuntimeError, match="límite de 25 secciones"):
@@ -306,11 +308,13 @@ def test_llm_assignment_results_are_revalidated_before_status_requests(monkeypat
     monkeypatch.setattr(
         extraction_tools,
         "extract_assignments_from_html_with_llm",
-        lambda *_args, **_kwargs: [{
-            "title": "Tarea externa",
-            "type": "assignment",
-            "url": "https://evil.example/mod/assign/view.php?id=1",
-        }],
+        lambda *_args, **_kwargs: [
+            {
+                "title": "Tarea externa",
+                "type": "assignment",
+                "url": "https://evil.example/mod/assign/view.php?id=1",
+            }
+        ],
     )
 
     with pytest.raises(RuntimeError, match="resultado es incompleto.*URL de actividad"):
@@ -349,12 +353,14 @@ def test_llm_assignment_results_keep_their_course_section(monkeypatch, moodle_pr
     monkeypatch.setattr(
         extraction_tools,
         "extract_assignments_from_html_with_llm",
-        lambda *_args, **_kwargs: [{
-            "title": "Final project report",
-            "type": "assignment",
-            "url": f"{base}/mod/assign/view.php?id=9002",
-            "section": "Main",
-        }],
+        lambda *_args, **_kwargs: [
+            {
+                "title": "Final project report",
+                "type": "assignment",
+                "url": f"{base}/mod/assign/view.php?id=9002",
+                "section": "Main",
+            }
+        ],
     )
     monkeypatch.setattr(
         extraction_tools,

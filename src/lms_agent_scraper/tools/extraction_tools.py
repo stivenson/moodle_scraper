@@ -16,7 +16,10 @@ from lms_agent_scraper.tools.submission_tools import enrich_assignment_submissio
 log = logging.getLogger(__name__)
 
 
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Safari/537.36"
+)
 MAX_COURSE_SECTION_PAGES = 25
 MAX_TOTAL_SECTION_PAGE_REQUESTS = 100
 MAX_TOTAL_ASSIGNMENT_STATUS_REQUESTS = 300
@@ -132,7 +135,10 @@ def extract_assignments_from_html(
                         "type": assignment_type,
                         "url": href,
                         "section": section_name,
-                        "submission_status": {"submitted": None, "status_text": "Estado no verificado"},
+                        "submission_status": {
+                            "submitted": None,
+                            "status_text": "Estado no verificado",
+                        },
                         "attached_files": [],
                     }
                 )
@@ -173,7 +179,8 @@ def extract_assignments_from_html_with_llm(
     section_name: str = "Main",
 ) -> List[Dict[str, Any]]:
     """
-    Extrae tareas intentando primero con el LLM; si no está disponible o devuelve vacío, usa selectores del perfil.
+    Extrae tareas con el LLM y, si no está disponible o devuelve vacío,
+    usa los selectores del perfil.
     """
     try:
         from lms_agent_scraper.llm.ollama_client import LocalLLMClient
@@ -248,7 +255,8 @@ def get_assignments_for_courses(
 ) -> List[Dict[str, Any]]:
     """
     Por cada curso, obtiene la página y extrae assignments.
-    Si use_llm_first es True, intenta extracción con LLM por curso; si falla o está vacío, usa selectores.
+    Si use_llm_first es True, intenta extracción con LLM por curso; si falla o está vacío, usa
+    selectores.
     Retorna la lista agregada de assignments.
     """
     if not courses:
@@ -302,9 +310,7 @@ def get_assignments_for_courses(
                         section_name=section_name,
                     )
                     for item in items:
-                        activity_url = _normalize_moodle_activity_url(
-                            item.get("url", ""), base_url
-                        )
+                        activity_url = _normalize_moodle_activity_url(item.get("url", ""), base_url)
                         if not activity_url:
                             raise RuntimeError(
                                 "URL de actividad inválida o fuera del portal configurado"
@@ -315,7 +321,10 @@ def get_assignments_for_courses(
                         parsed_activity = urlparse(activity_url)
                         activity_query = parse_qs(parsed_activity.query, keep_blank_values=True)
                         activity_ids = activity_query.get("id", [])
-                        if parsed_activity.path.rstrip("/").endswith("/view.php") and len(activity_ids) == 1:
+                        if (
+                            parsed_activity.path.rstrip("/").endswith("/view.php")
+                            and len(activity_ids) == 1
+                        ):
                             key = urlunparse(
                                 parsed_activity._replace(
                                     scheme=parsed_activity.scheme.casefold(),
@@ -333,12 +342,8 @@ def get_assignments_for_courses(
                                 )
                             )
                         existing = all_assignments.get(key)
-                        if (
-                            existing is None
-                            or (
-                                existing.get("section") == "Main"
-                                and item.get("section") != "Main"
-                            )
+                        if existing is None or (
+                            existing.get("section") == "Main" and item.get("section") != "Main"
                         ):
                             all_assignments[key] = item
                     time.sleep(0.2)

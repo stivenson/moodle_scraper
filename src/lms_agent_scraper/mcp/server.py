@@ -1,6 +1,6 @@
 """
 Servidor MCP para LMS Agent Scraper.
-Expone herramientas: get_pending_assignments, get_submitted_assignments, get_courses, generate_report, check_deadlines, list_profiles.
+Expone herramientas MCP para cursos, tareas, entregas, plazos, reportes y perfiles.
 """
 
 import json
@@ -11,23 +11,26 @@ from urllib.parse import urlparse, urlunparse
 
 from mcp.server.fastmcp import FastMCP
 
-from lms_agent_scraper.config.settings import PortalSettings, ScraperSettings, OutputSettings
+from lms_agent_scraper.config.settings import OutputSettings, PortalSettings, ScraperSettings
 from lms_agent_scraper.core.profile_loader import ProfileLoader
 from lms_agent_scraper.graph.workflow import run_workflow
-from lms_agent_scraper.tools.report_tools import filter_by_date
 from lms_agent_scraper.tools.extraction_tools import session_from_cookies
 from lms_agent_scraper.tools.moodle_submission import (
     manage_assignment_submission as perform_submission_action,
+)
+from lms_agent_scraper.tools.moodle_submission import (
     read_assignment_details,
     validate_submission_action,
 )
+from lms_agent_scraper.tools.report_tools import filter_by_date
 from lms_agent_scraper.tools.submission_tools import filter_pending_assignments
 
 MCP_INSTRUCTIONS = """
-Este servidor MCP da acceso a portales LMS Moodle: cursos, tareas pendientes, entregas y plazos del estudiante.
-La configuración de ejemplo puede usar el perfil moodle_unisimon (Universidad Simón Bolívar, Colombia, Aula Extendida);
-puedes configurar otro perfil y URL para cualquier Moodle.
-Para el flujo completo, consulta primero get_assignment_workflow y sigue sus pasos. Usa get_pending_assignments para listar y read_assignment para consultar instrucciones. Las operaciones se limitan a entregas propias que el scraper descubrió en el portal configurado; create, update y delete requieren confirmed=true.
+Este servidor MCP da acceso a cursos, tareas, entregas y plazos del Moodle configurado.
+El perfil moodle_unisimon es un adaptador de ejemplo; también puedes configurar otro Moodle.
+Para el flujo completo, consulta get_assignment_workflow. Usa get_pending_assignments para listar y
+read_assignment para consultar instrucciones. Las operaciones se limitan a entregas propias
+descubiertas en el portal configurado; create, update y delete requieren confirmed=true.
 """
 
 mcp = FastMCP(
@@ -51,8 +54,10 @@ def _normalize_course_name(value: str) -> str:
 
 @mcp.tool()
 def get_assignment_workflow() -> str:
-    """Devuelve el skill assignment-manager con el flujo de lectura, preparación y gestión segura."""
-    skill_path = Path(__file__).resolve().parent.parent / "skills" / "assignment-manager" / "SKILL.md"
+    """Devuelve el skill assignment-manager con pasos seguros para gestionar entregas."""
+    skill_path = (
+        Path(__file__).resolve().parent.parent / "skills" / "assignment-manager" / "SKILL.md"
+    )
     try:
         return skill_path.read_text(encoding="utf-8")
     except OSError:
@@ -96,11 +101,12 @@ def _run_full_workflow() -> Dict[str, Any]:
         details = "; ".join(str(error) for error in errors)
         if unknown_assignments:
             names = ", ".join(
-                item.get("title", "entrega sin nombre")
-                for item in unknown_assignments[:5]
+                item.get("title", "entrega sin nombre") for item in unknown_assignments[:5]
             )
             details = f"{details}; " if details else ""
-            details += f"no se pudo confirmar el estado de {len(unknown_assignments)} entrega(s): {names}"
+            details += (
+                f"no se pudo confirmar el estado de {len(unknown_assignments)} entrega(s): {names}"
+            )
         return {
             "error": f"Scraper incompleto; no se presentará una lista como completa. {details}",
             "report_path": result.get("report_path", ""),
@@ -127,13 +133,10 @@ def get_pending_assignments(
     all_discovered_courses = result.get("courses", [])
     max_courses = ScraperSettings().max_courses
     processed_courses = (
-        all_discovered_courses[:max_courses]
-        if max_courses > 0
-        else all_discovered_courses
+        all_discovered_courses[:max_courses] if max_courses > 0 else all_discovered_courses
     )
     discovered_courses = [
-        _normalize_course_name(course.get("name", ""))
-        for course in processed_courses
+        _normalize_course_name(course.get("name", "")) for course in processed_courses
     ]
     missing_courses = [
         name
@@ -141,9 +144,8 @@ def get_pending_assignments(
         if not any(_normalize_course_name(name) in course for course in discovered_courses)
     ]
     if names and missing_courses:
-        return (
-            "Scraper incompleto; no se encontraron los cursos solicitados: "
-            + ", ".join(missing_courses)
+        return "Scraper incompleto; no se encontraron los cursos solicitados: " + ", ".join(
+            missing_courses
         )
     filtered = filter_pending_assignments(
         result.get("assignments", []), names, days_ahead=days_ahead, days_behind=days_behind
@@ -212,6 +214,7 @@ def manage_submission(
 
 def _find_target_assignment(result: Dict[str, Any], assignment_url: str) -> Dict[str, Any]:
     """Permite operar solo sobre una entrega descubierta en el recorrido actual."""
+
     def normalized(url: str) -> str:
         parts = urlparse(url)
         return urlunparse(

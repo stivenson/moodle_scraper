@@ -57,7 +57,9 @@ def validate_submission_action(
     if action in {"create", "update"}:
         if file_path and file_paths:
             raise ValueError("Usa file_path o file_paths, no ambos")
-        raw_paths = list(file_paths) if file_paths is not None else ([file_path] if file_path else [])
+        raw_paths = (
+            list(file_paths) if file_paths is not None else ([file_path] if file_path else [])
+        )
         if not raw_paths:
             raise ValueError("La acción requiere un archivo local existente")
         if len(raw_paths) > MAX_SUBMISSION_FILES:
@@ -82,16 +84,16 @@ def read_assignment_details(
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "lxml")
     main = soup.select_one("#region-main") or soup.body or soup
-    title_node = main.select_one("h1, h2") or soup.select_one(
-        "#page-header h1, header h1, h1"
-    )
+    title_node = main.select_one("h1, h2") or soup.select_one("#page-header h1, header h1, h1")
     description = main.select_one(".activity-description, .intro, .box.generalbox")
     files = []
     for link in (description or main).select("a[href]"):
         href = link.get("href", "")
         label = link.get_text(" ", strip=True)
-        if href and label and any(
-            ext in href.casefold() for ext in ("pluginfile.php", ".pdf", ".doc", ".zip")
+        if (
+            href
+            and label
+            and any(ext in href.casefold() for ext in ("pluginfile.php", ".pdf", ".doc", ".zip"))
         ):
             files.append({"name": label, "url": href})
     return {
@@ -161,9 +163,7 @@ def _click_visible_text(page: Any, text: str) -> None:
 def _wait_for_visible_text(page: Any, text: str, timeout_ms: int) -> bool:
     """Espera un texto dentro de un ámbito y devuelve False si no aparece."""
     try:
-        page.get_by_text(text, exact=True).wait_for(
-            state="visible", timeout=timeout_ms
-        )
+        page.get_by_text(text, exact=True).wait_for(state="visible", timeout=timeout_ms)
         return True
     except Exception:
         return False
@@ -195,8 +195,7 @@ def _wait_for_submission_filemanager(page: Any) -> Any:
         if not legacy.count():
             return None
         manager_selector = (
-            ".filemanager:not(.fp-select).fm-loaded"
-            ":not(.fm-loading):not(.fm-updating)"
+            ".filemanager:not(.fp-select).fm-loaded:not(.fm-loading):not(.fm-updating)"
         )
 
     manager = page.locator(manager_selector).first
@@ -241,16 +240,12 @@ def _upload_submission_files(page: Any, files: Sequence[Path]) -> None:
     if manager is None:
         # Algunos LMS antiguos usan un input dedicado sin filemanager. Excluye
         # el input repo_upload_file, que solo pertenece al diálogo Moodle.
-        file_input = page.locator(
-            "input[type='file']:not([name='repo_upload_file'])"
-        ).first
+        file_input = page.locator("input[type='file']:not([name='repo_upload_file'])").first
         if not file_input.count():
             raise RuntimeError("Moodle no mostró el gestor ni un campo directo de archivo")
         file_input.set_input_files([str(path) for path in files])
         for path in files:
-            page.get_by_text(path.name, exact=True).wait_for(
-                state="visible", timeout=30000
-            )
+            page.get_by_text(path.name, exact=True).wait_for(state="visible", timeout=30000)
         return
 
     add_file = manager.locator(".fp-btn-add a")
@@ -258,19 +253,19 @@ def _upload_submission_files(page: Any, files: Sequence[Path]) -> None:
     if add_file.count():
         for path in files:
             add_file.first.click()
-            dialog = page.locator(
-                ".moodle-dialogue-wrap.yui3-widget-content-expanded"
-            ).last
+            dialog = page.locator(".moodle-dialogue-wrap.yui3-widget-content-expanded").last
             dialog.wait_for(state="visible", timeout=30000)
             _click_visible_text(dialog, "Subir un archivo")
-            upload_input = dialog.locator(
-                "input[type='file'][name='repo_upload_file']"
-            )
+            upload_input = dialog.locator("input[type='file'][name='repo_upload_file']")
             upload_input.wait_for(state="attached", timeout=30000)
+            file_label = dialog.locator(".fp-file label").first
+            file_label.wait_for(state="visible", timeout=30000)
             # Moodle's filepicker listens for the real filechooser change event;
             # set_input_files populated input.files but was rejected as empty.
+            # In the native template, this visible label is associated with the
+            # hidden repo_upload_file input and is the supported click target.
             with page.expect_file_chooser(timeout=30000) as chooser_info:
-                upload_input.click()
+                file_label.click()
             chooser_info.value.set_files(str(path))
             selected_names = upload_input.evaluate(
                 "input => Array.from(input.files).map(file => file.name)"
@@ -314,18 +309,12 @@ def _upload_submission_files(page: Any, files: Sequence[Path]) -> None:
             if selection_dialog is not None:
                 # Some Moodle themes close the picker and attach the file
                 # directly; others show a file detail dialog first.
-                if _wait_for_visible_text(
-                    selection_dialog, path.name, timeout_ms=5000
-                ):
+                if _wait_for_visible_text(selection_dialog, path.name, timeout_ms=5000):
                     for label in ("Seleccionar este archivo", "Seleccionar"):
-                        if _wait_for_visible_text(
-                            selection_dialog, label, timeout_ms=5000
-                        ):
+                        if _wait_for_visible_text(selection_dialog, label, timeout_ms=5000):
                             _click_visible_text(selection_dialog, label)
                             break
-            manager.get_by_text(path.name, exact=True).wait_for(
-                state="visible", timeout=30000
-            )
+            manager.get_by_text(path.name, exact=True).wait_for(state="visible", timeout=30000)
         return
     raise RuntimeError("Moodle no mostró el control Agregar del gestor de archivos")
 
@@ -349,7 +338,9 @@ def manage_assignment_submission(
         action, assignment_url, base_url, file_path, confirmed, file_paths
     )
     if action == "read":
-        raise ValueError("Para leer detalles use read_assignment_details con una sesión autenticada")
+        raise ValueError(
+            "Para leer detalles use read_assignment_details con una sesión autenticada"
+        )
     try:
         from playwright.sync_api import TimeoutError as PlaywrightTimeout
         from playwright.sync_api import sync_playwright
@@ -394,9 +385,7 @@ def manage_assignment_submission(
                     submission_state=state,
                 )
             except ValueError as error:
-                raise RuntimeError(
-                    f"El estado actual no permite esta acción: {state}"
-                ) from error
+                raise RuntimeError(f"El estado actual no permite esta acción: {state}") from error
             if state == "unknown":
                 raise RuntimeError("El estado actual no permite esta acción o no se pudo verificar")
 
@@ -412,14 +401,21 @@ def manage_assignment_submission(
                 if action == "update":
                     _remove_existing_submission_files(page)
                 _upload_submission_files(page, local_files or [])
-                _click_button(page, ("Save changes", "Guardar cambios", "Submit assignment", "Guardar"))
+                _click_button(
+                    page, ("Save changes", "Guardar cambios", "Submit assignment", "Guardar")
+                )
                 current = parse_submission_status(page.content(), profile)
                 if current.get("state") not in {"submitted", "draft"}:
                     raise RuntimeError("Moodle no mostró la entrega guardada antes del envío")
                 if current["state"] == "draft":
                     _click_button(
                         page,
-                        ("Submit assignment", "Enviar tarea", "Enviar entrega", "Enviar para calificar"),
+                        (
+                            "Submit assignment",
+                            "Enviar tarea",
+                            "Enviar entrega",
+                            "Enviar para calificar",
+                        ),
                     )
                     _click_button(
                         page,
@@ -436,14 +432,10 @@ def manage_assignment_submission(
             submitted_files = _extract_submitted_file_names(final_html)
             if action == "delete":
                 if after.get("state") != "not_submitted" or submitted_files:
-                    raise RuntimeError(
-                        "Moodle no confirmó el retiro de la entrega y sus archivos"
-                    )
+                    raise RuntimeError("Moodle no confirmó el retiro de la entrega y sus archivos")
             else:
                 expected_names = {path.name for path in local_files or []}
-                if after.get("state") != "submitted" or expected_names != set(
-                    submitted_files
-                ):
+                if after.get("state") != "submitted" or expected_names != set(submitted_files):
                     raise RuntimeError(
                         "Moodle no confirmó el envío de todos los archivos; revisa la entrega"
                     )

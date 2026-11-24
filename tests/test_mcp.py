@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 # Importar después de conftest que añade src al path
 from lms_agent_scraper.mcp import server
 from lms_agent_scraper.mcp.server import list_profiles
@@ -208,9 +207,10 @@ def test_target_assignment_scope_accepts_any_currently_discovered_course():
         ]
     }
 
-    assert server._find_target_assignment(
-        result, "https://lms.example/mod/assign/view.php?id=42"
-    ) == result["assignments"][0]
+    assert (
+        server._find_target_assignment(result, "https://lms.example/mod/assign/view.php?id=42")
+        == result["assignments"][0]
+    )
 
 
 def test_pending_assignments_without_course_filter_includes_all_discovered_courses(monkeypatch):

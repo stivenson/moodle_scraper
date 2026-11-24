@@ -1,7 +1,7 @@
 """Lectura y filtrado del estado de entregas de Moodle."""
 
-import unicodedata
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -90,7 +90,8 @@ def _parse_relative_due_time(html: str) -> Optional[Dict[str, Any]]:
     """Lee el contador de Moodle sin transformarlo en una fecha absoluta inventada."""
     text = BeautifulSoup(html or "", "lxml").get_text(" ", strip=True)
     timer = re.search(
-        r"(?:tiempo restante|time remaining)\s*:?\s*(.*?)(?=\s+(?:última modificación|comentarios|estado de la calificación|last modified|comments)\b|$)",
+        r"(?:tiempo restante|time remaining)\s*:?\s*(.*?)(?=\s+(?:"
+        r"última modificación|comentarios|estado de la calificación|last modified|comments)\b|$)",
         text,
         re.IGNORECASE,
     )
@@ -138,12 +139,10 @@ def parse_submission_status(
     submission_config = profile.get("submission", {})
     indicators = submission_config.get("indicators", {})
     submitted_terms = tuple(
-        _normalize(term)
-        for term in indicators.get("submitted", DEFAULT_SUBMITTED_INDICATORS)
+        _normalize(term) for term in indicators.get("submitted", DEFAULT_SUBMITTED_INDICATORS)
     )
     draft_terms = tuple(
-        _normalize(term)
-        for term in indicators.get("draft", DEFAULT_DRAFT_INDICATORS)
+        _normalize(term) for term in indicators.get("draft", DEFAULT_DRAFT_INDICATORS)
     )
     # Configurations predating explicit states may call drafts "pending". Check
     # draft markers separately and ignore the broad word "pending" so that

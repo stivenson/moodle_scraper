@@ -1,10 +1,10 @@
 from datetime import date
 
 from lms_agent_scraper.tools.submission_tools import (
+    _parse_relative_due_time,
     enrich_assignment_submission_status,
     filter_pending_assignments,
     parse_submission_status,
-    _parse_relative_due_time,
 )
 
 
@@ -193,7 +193,8 @@ def test_read_assignment_details_lists_only_files_in_submission_row():
           <tr><th>Estado de la entrega</th><td>Enviado para calificar</td></tr>
           <tr><th>Archivos enviados</th><td><a href="/pluginfile.php/1/informe.pdf">informe.pdf</a>
           <a href="/pluginfile.php/1/analisis.omv">analisis.omv</a></td></tr>
-          <tr><th>Archivos de ejemplo</th><td><a href="/pluginfile.php/1/guia.pdf">guia.pdf</a></td></tr>
+          <tr><th>Archivos de ejemplo</th>
+          <td><a href="/pluginfile.php/1/guia.pdf">guia.pdf</a></td></tr>
         </table></main>"""
 
         def raise_for_status(self):
@@ -203,9 +204,7 @@ def test_read_assignment_details_lists_only_files_in_submission_row():
         def get(self, url, timeout):
             return Response()
 
-    details = read_assignment_details(
-        "https://lms.example/mod/assign/view.php?id=42", Session()
-    )
+    details = read_assignment_details("https://lms.example/mod/assign/view.php?id=42", Session())
 
     assert details["submitted_files"] == ["informe.pdf", "analisis.omv"]
 

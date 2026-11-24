@@ -94,7 +94,7 @@ pip install -e .
 # 2. Instalar navegador para Playwright (solo la primera vez)
 playwright install chromium
 
-# 3. Configurar .env (copiar .env.example a .env; definir PORTAL_PROFILE, PORTAL_BASE_URL, PORTAL_USERNAME, PORTAL_PASSWORD). Los valores de ejemplo moodle_unisimon y aulapregrado.unisimon.edu.co corresponden a la Universidad Simón Bolívar (Colombia).
+# 3. Configurar .env (copiar .env.example a .env; definir PORTAL_PROFILE, PORTAL_BASE_URL, PORTAL_USERNAME, PORTAL_PASSWORD). La plantilla usa moodle_default y una URL Moodle ficticia; moodle_unisimon es un adaptador opcional para Aula Extendida. SCRAPER_TARGET_COURSES permite filtrar cursos separados por coma; vacío incluye todos los cursos descubiertos.
 
 # 4. Ejecutar (usa valores por defecto del .env)
 python -m lms_agent_scraper.cli run
@@ -125,6 +125,7 @@ python validate_skills.py
 ## 📝 Notas Importantes
 
 - **Comando recomendado:** `python -m lms_agent_scraper.cli run` (usa valores de `.env`).
+- **MCP:** `get_pending_assignments` acepta cursos configurados; `read_assignment` lee tareas descubiertas y `manage_submission` gestiona las entregas propias. Las acciones que cambian entregas requieren `confirmed=true` y validación del estado actual.
 - **Python 3.10+** requerido.
 - **Siempre activa el entorno virtual** antes de ejecutar el scraper.
 - Las credenciales y la URL del portal van en `.env` (no versionado); ver `.env.example`.

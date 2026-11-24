@@ -2,13 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from lms_agent_scraper.tools.moodle_submission import validate_submission_action
-from lms_agent_scraper.tools.moodle_submission import read_assignment_details
 from lms_agent_scraper.tools.moodle_submission import (
     _remove_existing_submission_files,
     _upload_submission_files,
+    read_assignment_details,
+    validate_submission_action,
 )
-
 
 BASE_URL = "https://lms.example.edu"
 ASSIGNMENT_URL = BASE_URL + "/mod/assign/view.php?id=42"
@@ -41,7 +40,9 @@ def test_submission_actions_reject_ambiguous_or_non_numeric_activity_ids(url):
 
 def test_create_and_update_require_an_existing_file(tmp_path: Path):
     with pytest.raises(ValueError, match="archivo local existente"):
-        validate_submission_action("update", ASSIGNMENT_URL, BASE_URL, str(tmp_path / "missing.pdf"), True)
+        validate_submission_action(
+            "update", ASSIGNMENT_URL, BASE_URL, str(tmp_path / "missing.pdf"), True
+        )
 
 
 def test_create_accepts_three_existing_files_for_a_multi_file_assignment(tmp_path: Path):
@@ -50,7 +51,11 @@ def test_create_accepts_three_existing_files_for_a_multi_file_assignment(tmp_pat
         file.write_bytes(b"data")
 
     result = validate_submission_action(
-        "create", ASSIGNMENT_URL, BASE_URL, None, True,
+        "create",
+        ASSIGNMENT_URL,
+        BASE_URL,
+        None,
+        True,
         file_paths=[str(file) for file in files],
     )
 
@@ -64,7 +69,11 @@ def test_submission_rejects_more_than_five_files(tmp_path: Path):
 
     with pytest.raises(ValueError, match="máximo de 5 archivos"):
         validate_submission_action(
-            "create", ASSIGNMENT_URL, BASE_URL, None, True,
+            "create",
+            ASSIGNMENT_URL,
+            BASE_URL,
+            None,
+            True,
             file_paths=[str(file) for file in files],
         )
 
@@ -139,8 +148,10 @@ def test_teacher_activity_attachment_is_not_reported_as_a_student_submission():
     class Response:
         text = """
         <html><body><h1>Proyecto Integrador - Parcial III</h1>
-        <div class="activity-description">Entrega el informe final.<div class="fileuploadsubmission">
-          <a href="/pluginfile.php/7/instrucciones.zip">Proyecto_Integrador_Parcial_Ciencia_de_Datos.zip</a>
+        <div class="activity-description">Entrega el informe final.
+          <div class="fileuploadsubmission">
+          <a href="/pluginfile.php/7/instrucciones.zip">
+            Proyecto_Integrador_Parcial_Ciencia_de_Datos.zip</a>
         </div></div>
         <table class="submissionstatustable">
           <tr><th>Estado de la entrega</th><td>Enviado para calificar</td></tr>
@@ -159,18 +170,21 @@ def test_teacher_activity_attachment_is_not_reported_as_a_student_submission():
     result = read_assignment_details(ASSIGNMENT_URL, Session())
 
     assert result["submission_status"]["state"] == "submitted"
-    assert result["attached_files"] == [{
-        "name": "Proyecto_Integrador_Parcial_Ciencia_de_Datos.zip",
-        "url": "/pluginfile.php/7/instrucciones.zip",
-    }]
+    assert result["attached_files"] == [
+        {
+            "name": "Proyecto_Integrador_Parcial_Ciencia_de_Datos.zip",
+            "url": "/pluginfile.php/7/instrucciones.zip",
+        }
+    ]
     assert result["submitted_files"] == ["informe.pdf"]
 
 
-
 def test_submission_login_waits_for_username_field_before_filling(monkeypatch, tmp_path):
-    import pytest
     import sys
     from types import ModuleType
+
+    import pytest
+
     import lms_agent_scraper.tools.moodle_submission as submission
 
     pdf = tmp_path / "informe.pdf"
@@ -223,7 +237,9 @@ def test_submission_login_waits_for_username_field_before_filling(monkeypatch, t
             pass
 
     class FakePlaywright:
-        chromium = type("FakeChromium", (), {"launch": staticmethod(lambda **kwargs: FakeBrowser())})()
+        chromium = type(
+            "FakeChromium", (), {"launch": staticmethod(lambda **kwargs: FakeBrowser())}
+        )()
 
         def __enter__(self):
             return self
@@ -245,7 +261,14 @@ def test_submission_login_waits_for_username_field_before_filling(monkeypatch, t
             base_url=BASE_URL + "/login/index.php",
             username="student",
             password="secret",
-            auth_profile={"login_path": "/login/index.php", "form_selectors": {"username": "#username", "password": "#password", "submit": "#loginbtn"}},
+            auth_profile={
+                "login_path": "/login/index.php",
+                "form_selectors": {
+                    "username": "#username",
+                    "password": "#password",
+                    "submit": "#loginbtn",
+                },
+            },
             profile={},
             file_path=str(pdf),
             confirmed=True,
@@ -305,9 +328,13 @@ def test_submission_files_use_moodles_native_file_picker(tmp_path):
             return self
 
         def is_visible(self):
+            if self.selector == "input[type='file'][name='repo_upload_file']":
+                return False
             return True
 
         def click(self):
+            if self.selector == "input[type='file'][name='repo_upload_file']":
+                raise RuntimeError("Playwright cannot click a hidden file input")
             events.append(("click", self.scope, self.selector))
 
         def all(self):
@@ -316,7 +343,11 @@ def test_submission_files_use_moodles_native_file_picker(tmp_path):
             return [self]
 
         def inner_text(self, timeout=None):
-            return "Subir este archivo" if self.selector == "button, input[type='submit'], a.btn" else ""
+            return (
+                "Subir este archivo"
+                if self.selector == "button, input[type='submit'], a.btn"
+                else ""
+            )
 
         def get_attribute(self, name):
             return None
@@ -355,8 +386,12 @@ def test_submission_files_use_moodles_native_file_picker(tmp_path):
     assert (
         "click",
         ".moodle-dialogue-wrap.yui3-widget-content-expanded",
-        "input[type='file'][name='repo_upload_file']",
+        ".fp-file label",
     ) in events
+    assert not any(
+        event[0] == "click" and event[2] == "input[type='file'][name='repo_upload_file']"
+        for event in events
+    )
     assert (
         "click",
         ".moodle-dialogue-wrap.yui3-widget-content-expanded",
@@ -369,7 +404,8 @@ def test_submission_files_use_moodles_native_file_picker(tmp_path):
         assert select in events
         assert (
             "wait_for",
-            "[data-fieldtype='filemanager'] .filemanager.fm-loaded:not(.fm-loading):not(.fm-updating)",
+            "[data-fieldtype='filemanager'] .filemanager.fm-loaded"
+            ":not(.fm-loading):not(.fm-updating)",
             file.name,
             "visible",
         ) in events
@@ -382,8 +418,7 @@ def test_filemanager_waits_for_async_widget_insertion_and_loading_to_finish():
     events = []
     modern = "[data-fieldtype='filemanager'] .filemanager:not(.fp-select)"
     ready = (
-        "[data-fieldtype='filemanager'] .filemanager.fm-loaded"
-        ":not(.fm-loading):not(.fm-updating)"
+        "[data-fieldtype='filemanager'] .filemanager.fm-loaded:not(.fm-loading):not(.fm-updating)"
     )
 
     class Locator:
@@ -411,6 +446,7 @@ def test_filemanager_waits_for_async_widget_insertion_and_loading_to_finish():
                 widget_state["inserted"] = True
             elif self.selector == ready and state == "visible":
                 widget_state["ready"] = True
+
         def get_by_text(self, text, exact=False):
             result = Locator(text, self.selector)
             return result
@@ -430,9 +466,7 @@ def test_filemanager_waits_for_async_widget_insertion_and_loading_to_finish():
     ]
 
 
-def test_filepicker_accepts_moodle_theme_that_attaches_without_confirmation(
-    monkeypatch, tmp_path
-):
+def test_filepicker_accepts_moodle_theme_that_attaches_without_confirmation(monkeypatch, tmp_path):
     import lms_agent_scraper.tools.moodle_submission as submission
 
     artifact = tmp_path / "informe.pdf"
@@ -486,7 +520,11 @@ def test_filepicker_accepts_moodle_theme_that_attaches_without_confirmation(
             events.append(("wait_for", self.parent, self.selector, kwargs.get("state")))
 
         def inner_text(self, timeout=None):
-            return "Subir este archivo" if self.selector == "button, input[type='submit'], a.btn" else ""
+            return (
+                "Subir este archivo"
+                if self.selector == "button, input[type='submit'], a.btn"
+                else ""
+            )
 
         def evaluate(self, script):
             return [artifact.name]
@@ -551,14 +589,22 @@ def test_update_accepts_an_existing_draft_but_create_does_not(tmp_path):
     draft.write_bytes(b"data")
 
     result = validate_submission_action(
-        "update", ASSIGNMENT_URL, BASE_URL, str(draft), True,
+        "update",
+        ASSIGNMENT_URL,
+        BASE_URL,
+        str(draft),
+        True,
         submission_state="draft",
     )
 
     assert result == [draft.resolve()]
     with pytest.raises(ValueError, match="estado de entrega"):
         validate_submission_action(
-            "create", ASSIGNMENT_URL, BASE_URL, str(draft), True,
+            "create",
+            ASSIGNMENT_URL,
+            BASE_URL,
+            str(draft),
+            True,
             submission_state="draft",
         )
 
@@ -578,12 +624,7 @@ def test_direct_file_input_waits_until_every_uploaded_filename_is_visible(tmp_pa
             return self
 
         def count(self):
-            return (
-                1
-                if self.selector
-                == "input[type='file']:not([name='repo_upload_file'])"
-                else 0
-            )
+            return 1 if self.selector == "input[type='file']:not([name='repo_upload_file'])" else 0
 
         def set_input_files(self, paths):
             events.append(("set_files", paths))
@@ -603,7 +644,9 @@ def test_direct_file_input_waits_until_every_uploaded_filename_is_visible(tmp_pa
     set_event = next(event for event in events if event[0] == "set_files")
     assert set_event == ("set_files", [str(file) for file in files])
     verified = [
-        event for event in events if event[0] == "verify_name" and event[1] in {f.name for f in files}
+        event
+        for event in events
+        if event[0] == "verify_name" and event[1] in {f.name for f in files}
     ]
     assert [event[1] for event in verified] == [file.name for file in files]
     assert all(event[2] == "visible" for event in verified)
@@ -612,6 +655,7 @@ def test_direct_file_input_waits_until_every_uploaded_filename_is_visible(tmp_pa
 def test_update_is_not_verified_when_moodle_keeps_the_old_file(monkeypatch, tmp_path):
     import sys
     from types import ModuleType
+
     import lms_agent_scraper.tools.moodle_submission as submission
 
     replacement = tmp_path / "nuevo.pdf"
@@ -694,7 +738,11 @@ def test_update_is_not_verified_when_moodle_keeps_the_old_file(monkeypatch, tmp_
                     "awaiting_confirmation": ["Continuar"],
                     "submitted": [],
                 }.get(self.stage, [])
-                return type("Buttons", (), {"all": lambda _: [Locator(self, selector, label) for label in labels]})()
+                return type(
+                    "Buttons",
+                    (),
+                    {"all": lambda _: [Locator(self, selector, label) for label in labels]},
+                )()
             return Locator(self, selector)
 
         def get_by_text(self, text, exact=False):
@@ -703,11 +751,14 @@ def test_update_is_not_verified_when_moodle_keeps_the_old_file(monkeypatch, tmp_
         def content(self):
             if self.stage == "submitted":
                 # Moodle still shows the previously submitted file, not the replacement.
-                return """<table><tr><th>Estado de la entrega</th><td>Enviado para calificar</td></tr>
+                return """<table><tr><th>Estado de la entrega</th>
+                <td>Enviado para calificar</td></tr>
                 <tr><th>Archivos enviados</th><td><a>anterior.pdf</a></td></tr></table>"""
             if self.stage == "saved":
-                return """<table><tr><th>Estado de la entrega</th><td>Borrador (no enviado)</td></tr></table>"""
-            return """<table><tr><th>Estado de la entrega</th><td>Borrador (no enviado)</td></tr>
+                return """<table><tr><th>Estado de la entrega</th>
+                <td>Borrador (no enviado)</td></tr></table>"""
+            return """<table><tr><th>Estado de la entrega</th>
+            <td>Borrador (no enviado)</td></tr>
             <tr><th>Archivos enviados</th><td><a>anterior.pdf</a></td></tr></table>"""
 
     page = Page()
