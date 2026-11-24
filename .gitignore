@@ -1,6 +1,9 @@
 # Environment
 .env
 .venv/
+/entregas/
+/JSBout172B.csv
+unisimon_scraper.code-workspace
 _filter_replace_secrets.py
 venv/
 env/

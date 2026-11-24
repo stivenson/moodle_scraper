@@ -31,6 +31,7 @@ class ScraperSettings(BaseSettings):
     days_ahead: int = Field(default=7, alias="SCRAPER_DAYS_AHEAD")
     days_behind: int = Field(default=7, alias="SCRAPER_DAYS_BEHIND")
     max_courses: int = Field(default=0, alias="SCRAPER_MAX_COURSES")
+    target_courses: str = Field(default="", alias="SCRAPER_TARGET_COURSES")
     debug_mode: bool = Field(default=False, alias="SCRAPER_DEBUG_MODE")
     save_html_debug: bool = Field(default=False, alias="SCRAPER_SAVE_HTML_DEBUG")
 

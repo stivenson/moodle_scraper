@@ -13,7 +13,7 @@ dependencies = [
     "ollama>=0.4.0",
     "langchain-anthropic>=0.2.0",
     "langchain-openai>=0.2.0",
-    "mcp>=1.0.0",
+    "mcp>=1.0.0,<2.0.0",
     "playwright>=1.40.0",
     "beautifulsoup4>=4.12.0",
     "spacy>=3.7.0",
@@ -51,3 +51,5 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+[tool.setuptools.package-data]
+lms_agent_scraper = ["skills/**/*.md"]

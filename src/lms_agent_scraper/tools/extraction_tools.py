@@ -5,16 +5,21 @@ Herramientas de extracción de tareas desde HTML usando perfil de selectores.
 import logging
 import time
 from typing import Any, Dict, List
+from urllib.parse import parse_qs, urljoin, urlparse, urlunparse
 
 import requests
 from bs4 import BeautifulSoup
 
 from lms_agent_scraper.core.date_parser import extract_date_from_text
+from lms_agent_scraper.tools.submission_tools import enrich_assignment_submission_status
 
 log = logging.getLogger(__name__)
 
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+MAX_COURSE_SECTION_PAGES = 25
+MAX_TOTAL_SECTION_PAGE_REQUESTS = 100
+MAX_TOTAL_ASSIGNMENT_STATUS_REQUESTS = 300
 
 
 def session_from_cookies(
@@ -36,7 +41,12 @@ def session_from_cookies(
         value = c.get("value")
         dom = c.get("domain", "").lstrip(".") or domain
         if name and value:
-            session.cookies.set(name, value, domain=dom)
+            session.cookies.set(
+                name,
+                value,
+                domain=dom,
+                secure=bool(c.get("secure", False)),
+            )
     return session
 
 
@@ -88,7 +98,9 @@ def extract_assignments_from_html(
     for selector in assignment_selectors:
         for link in soup.select(selector):
             try:
-                href = link.get("href", "")
+                raw_href = link.get("href", "")
+                origin_url = base_url or course_url
+                href = _normalize_moodle_activity_url(raw_href, origin_url)
                 if not href or href in seen_hrefs:
                     continue
                 title = link.get_text(strip=True)
@@ -120,13 +132,36 @@ def extract_assignments_from_html(
                         "type": assignment_type,
                         "url": href,
                         "section": section_name,
-                        "submission_status": {"submitted": False, "status_text": "No entregada"},
+                        "submission_status": {"submitted": None, "status_text": "Estado no verificado"},
                         "attached_files": [],
                     }
                 )
             except Exception:
                 continue
     return assignments
+
+
+def _normalize_moodle_activity_url(href: str, origin_url: str) -> str:
+    """Acepta únicamente actividades Moodle del mismo origen y con un ID único."""
+    if not href or not origin_url:
+        return ""
+    origin = urlparse(origin_url)
+    candidate = urlparse(urljoin(origin_url, href))
+    query = parse_qs(candidate.query, keep_blank_values=True)
+    activity_ids = query.get("id", [])
+    if (
+        candidate.scheme.casefold() != origin.scheme.casefold()
+        or candidate.scheme.casefold() not in {"http", "https"}
+        or candidate.netloc.casefold() != origin.netloc.casefold()
+        or candidate.username
+        or candidate.password
+        or not candidate.path.startswith("/mod/")
+        or not candidate.path.endswith(".php")
+        or len(activity_ids) != 1
+        or not activity_ids[0].isdigit()
+    ):
+        return ""
+    return urlunparse(candidate._replace(fragment=""))
 
 
 def extract_assignments_from_html_with_llm(
@@ -162,6 +197,46 @@ def extract_assignments_from_html_with_llm(
     )
 
 
+def _course_section_pages(html: str, course_url: str) -> List[tuple[str, str]]:
+    """Lista páginas de secciones enlazadas desde la portada del curso."""
+    parsed_course = urlparse(course_url)
+    course_query = parse_qs(parsed_course.query, keep_blank_values=True)
+    course_ids = course_query.get("id", [])
+    if not course_ids:
+        return [(course_url, "Main")]
+    if len(course_ids) != 1 or not course_ids[0]:
+        raise RuntimeError("La URL del curso contiene un identificador duplicado o vacío")
+    course_id = course_ids[0]
+
+    pages: Dict[str, str] = {course_url.split("#", 1)[0]: "Main"}
+    soup = BeautifulSoup(html or "", "lxml")
+    for link in soup.select("a[href]"):
+        absolute_url = urljoin(course_url, link.get("href", ""))
+        parsed_link = urlparse(absolute_url)
+        query = parse_qs(parsed_link.query, keep_blank_values=True)
+        section_ids = query.get("section", [])
+        if (
+            parsed_link.scheme.casefold() != parsed_course.scheme.casefold()
+            or parsed_link.scheme.casefold() not in {"http", "https"}
+            or parsed_link.netloc.casefold() != parsed_course.netloc.casefold()
+            or parsed_link.path.rstrip("/") != parsed_course.path.rstrip("/")
+            or query.get("id", []) != [course_id]
+            or len(section_ids) != 1
+        ):
+            continue
+        section = section_ids[0]
+        if not section.isdigit():
+            continue
+        canonical_url = urlunparse(parsed_link._replace(fragment=""))
+        label = link.get_text(" ", strip=True) or f"Sección {section}"
+        pages.setdefault(canonical_url, label)
+        if len(pages) > MAX_COURSE_SECTION_PAGES + 1:
+            raise RuntimeError(
+                f"El curso supera el límite de {MAX_COURSE_SECTION_PAGES} secciones enlazadas"
+            )
+    return list(pages.items())
+
+
 def get_assignments_for_courses(
     courses: List[Dict[str, str]],
     cookies: List[Dict[str, Any]],
@@ -179,7 +254,8 @@ def get_assignments_for_courses(
     if not courses:
         return []
     session = session_from_cookies(cookies, base_url)
-    all_assignments = []
+    all_assignments: Dict[str, Dict[str, Any]] = {}
+    section_page_requests = 0
     limit = len(courses) if max_courses <= 0 else min(max_courses, len(courses))
     for i, course in enumerate(courses[:limit]):
         course_url = course.get("url", "")
@@ -199,26 +275,87 @@ def get_assignments_for_courses(
         try:
             resp = session.get(course_url, timeout=timeout)
             resp.raise_for_status()
-            if use_llm_first:
-                items = extract_assignments_from_html_with_llm(
-                    resp.text,
-                    course_name=course_name,
-                    course_url=course_url,
-                    profile=profile,
-                    base_url=base_url,
-                    section_name="Main",
-                )
-            else:
-                items = extract_assignments_from_html(
-                    resp.text,
-                    course_name=course_name,
-                    course_url=course_url,
-                    profile=profile,
-                    section_name="Main",
-                    base_url=base_url,
-                )
-            all_assignments.extend(items)
-        except Exception:
-            continue
-        time.sleep(0.5)
-    return all_assignments
+            for section_url, section_name in _course_section_pages(resp.text, course_url):
+                try:
+                    if section_url == course_url.split("#", 1)[0]:
+                        section_html = resp.text
+                    else:
+                        section_page_requests += 1
+                        if section_page_requests > MAX_TOTAL_SECTION_PAGE_REQUESTS:
+                            raise RuntimeError(
+                                "El recorrido supera el límite global de páginas de secciones"
+                            )
+                        section_response = session.get(section_url, timeout=timeout)
+                        section_response.raise_for_status()
+                        section_html = section_response.text
+                    extractor = (
+                        extract_assignments_from_html_with_llm
+                        if use_llm_first
+                        else extract_assignments_from_html
+                    )
+                    items = extractor(
+                        section_html,
+                        course_name=course_name,
+                        course_url=section_url,
+                        profile=profile,
+                        base_url=base_url,
+                        section_name=section_name,
+                    )
+                    for item in items:
+                        activity_url = _normalize_moodle_activity_url(
+                            item.get("url", ""), base_url
+                        )
+                        if not activity_url:
+                            raise RuntimeError(
+                                "URL de actividad inválida o fuera del portal configurado"
+                            )
+                        item = dict(item)
+                        item["url"] = activity_url
+                        item["section"] = section_name
+                        parsed_activity = urlparse(activity_url)
+                        activity_query = parse_qs(parsed_activity.query, keep_blank_values=True)
+                        activity_ids = activity_query.get("id", [])
+                        if parsed_activity.path.rstrip("/").endswith("/view.php") and len(activity_ids) == 1:
+                            key = urlunparse(
+                                parsed_activity._replace(
+                                    scheme=parsed_activity.scheme.casefold(),
+                                    netloc=parsed_activity.netloc.casefold(),
+                                    query=f"id={activity_ids[0]}",
+                                    fragment="",
+                                )
+                            )
+                        else:
+                            key = urlunparse(
+                                parsed_activity._replace(
+                                    scheme=parsed_activity.scheme.casefold(),
+                                    netloc=parsed_activity.netloc.casefold(),
+                                    fragment="",
+                                )
+                            )
+                        existing = all_assignments.get(key)
+                        if (
+                            existing is None
+                            or (
+                                existing.get("section") == "Main"
+                                and item.get("section") != "Main"
+                            )
+                        ):
+                            all_assignments[key] = item
+                    time.sleep(0.2)
+                except Exception as error:
+                    raise RuntimeError(
+                        f"El resultado es incompleto: no se pudo explorar la sección "
+                        f"{section_name} del curso {course_name}: {error}"
+                    )
+        except Exception as error:
+            raise RuntimeError(
+                f"El resultado es incompleto: no se pudo explorar el curso {course_name}: {error}"
+            ) from error
+    result = list(all_assignments.values())
+    assignment_count = sum(item.get("type") == "assignment" for item in result)
+    if assignment_count > MAX_TOTAL_ASSIGNMENT_STATUS_REQUESTS:
+        raise RuntimeError(
+            "El resultado es incompleto: se supera el límite global de "
+            f"{MAX_TOTAL_ASSIGNMENT_STATUS_REQUESTS} comprobaciones de entrega"
+        )
+    return enrich_assignment_submission_status(result, session, profile, timeout=timeout)
